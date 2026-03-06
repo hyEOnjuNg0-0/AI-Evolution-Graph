@@ -1,3 +1,13 @@
+"""
+Semantic Scholar API
+        ↓
+SemanticScholarClient
+        ↓
+JSON → Paper objects
+        ↓
+Return a list of Paper objects
+"""
+
 import hashlib
 import json
 import logging
@@ -12,8 +22,8 @@ from aievograph.domain.ports.paper_collector import PaperCollectorPort
 
 logger = logging.getLogger(__name__)
 
-_BULK_SEARCH_ENDPOINT = "/paper/search/bulk"
-_FIELDS = "title,year,venue,citationCount,referenceCount,authors,externalIds,abstract"
+_BULK_SEARCH_ENDPOINT = "/paper/search/bulk"  # API endpoint
+_FIELDS = "title,year,venue,citationCount,referenceCount,authors,externalIds,abstract"  # Fields to fetch
 
 
 def _parse_paper(raw: dict[str, Any]) -> Paper | None:
@@ -87,7 +97,7 @@ class SemanticScholarClient(PaperCollectorPort):
         client: httpx.AsyncClient,
         venue: str,
         year_range: str,
-        token: str,
+        token: str,  # Pagination token
     ) -> dict[str, Any]:
         cache_key = _build_cache_key(venue, year_range, token)
         cached = self._read_cache(cache_key)
@@ -113,6 +123,7 @@ class SemanticScholarClient(PaperCollectorPort):
         self._write_cache(cache_key, data)
         return data
 
+    # main method
     async def collect(
         self,
         venues: list[str],

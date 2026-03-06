@@ -3,6 +3,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
 
+# Author
+#  ├ author_id
+#  └ name
 class Author(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -17,6 +20,10 @@ class Author(BaseModel):
         return value
 
 
+# Method
+#  ├ name
+#  ├ method_type
+#  └ description
 class Method(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -32,6 +39,16 @@ class Method(BaseModel):
         return value
 
 
+# Paper
+#  ├ paper_id
+#  ├ title
+#  ├ publication_year
+#  ├ venue
+#  ├ abstract
+#  ├ citation_count
+#  ├ reference_count
+#  ├ referenced_work_ids
+#  └ authors
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -53,7 +70,10 @@ class Paper(BaseModel):
             raise ValueError("Required string fields must not be empty.")
         return value
 
-
+# Citation
+#  ├ citing_paper_id
+#  ├ cited_paper_id
+#  └ created_year
 class Citation(BaseModel):
     model_config = ConfigDict(frozen=True)
 

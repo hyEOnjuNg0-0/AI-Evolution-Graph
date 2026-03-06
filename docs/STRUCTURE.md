@@ -18,7 +18,7 @@ AiEvoGraph/
 │       │   │   ├── __init__.py
 │       │   │   └── paper_filter.py             # 연도별 top-N% 인용 필터링
 │       │   ├── __init__.py
-│       │   └── models.py
+│       │   └── models.py                       # 논문 데이터 모델 정의 (Author, Paper, Citation, Paper)
 │       ├── infrastructure/
 │       │   ├── __init__.py
 │       │   ├── logging.py
