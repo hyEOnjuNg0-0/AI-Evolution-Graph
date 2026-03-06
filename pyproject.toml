@@ -1,0 +1,33 @@
+[project]
+name = "aievograph"
+version = "0.1.0"
+description = "AI EvoGraph backend skeleton"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27.0",
+    "langchain",
+    "langgraph",
+    "neo4j",
+    "openai",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.1",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
