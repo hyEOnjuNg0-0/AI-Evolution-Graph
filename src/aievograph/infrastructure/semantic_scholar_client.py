@@ -3,9 +3,9 @@ Semantic Scholar API
         ↓
 SemanticScholarClient
         ↓
-JSON → Paper objects
+Bulk search (metadata) → per-page filter → references endpoint
         ↓
-Return a list of Paper objects
+Return top-cited Paper objects with referenced_work_ids populated
 """
 
 import hashlib
@@ -19,17 +19,22 @@ import httpx
 from aievograph.config.settings import AppSettings
 from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
+from aievograph.domain.services.paper_filter import filter_top_cited
 
 logger = logging.getLogger(__name__)
 
-_BULK_SEARCH_ENDPOINT = "/paper/search/bulk"  # API endpoint
-_FIELDS = "title,year,venue,citationCount,referenceCount,authors,externalIds,abstract"  # Fields to fetch
+_BULK_SEARCH_ENDPOINT = "/paper/search/bulk"
+_REFS_ENDPOINT = "/paper/{}/references"
+# abstract causes HTTP 500 on bulk search endpoint — omitted intentionally
+_BULK_FIELDS = "title,year,venue,citationCount,referenceCount,authors"
+_REFS_FIELDS = "paperId"
 
 
 def _parse_paper(raw: dict[str, Any]) -> Paper | None:
-    """Convert a Semantic Scholar paper JSON to a Paper domain object.
+    """Convert a Semantic Scholar bulk search JSON entry to a Paper domain object.
 
     Returns None when required fields are missing.
+    referenced_work_ids is always empty here; populated later via _fetch_references.
     """
     paper_id = raw.get("paperId") or ""
     title = raw.get("title") or ""
@@ -44,20 +49,13 @@ def _parse_paper(raw: dict[str, Any]) -> Paper | None:
         if aid and aname:
             authors.append(Author(author_id=aid, name=aname))
 
-    ext_ids = raw.get("externalIds") or {}
-    ref_ids: tuple[str, ...] = ()
-    if ext_ids.get("DBLP"):
-        pass  # referenced_work_ids are populated via references endpoint later
-
     return Paper(
         paper_id=paper_id,
         title=title,
         publication_year=year,
         venue=raw.get("venue") or None,
-        abstract=raw.get("abstract") or None,
         citation_count=raw.get("citationCount") or 0,
         reference_count=raw.get("referenceCount") or 0,
-        referenced_work_ids=ref_ids,
         authors=authors,
     )
 
@@ -75,6 +73,7 @@ class SemanticScholarClient(PaperCollectorPort):
         self._api_key = settings.s2_api_key
         self._cache_dir = Path(settings.cache_dir)
         self._cache_dir.mkdir(parents=True, exist_ok=True)
+        self._top_percent = settings.citation_top_percent
 
     def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Accept": "application/json"}
@@ -82,13 +81,13 @@ class SemanticScholarClient(PaperCollectorPort):
             headers["x-api-key"] = self._api_key
         return headers
 
-    def _read_cache(self, key: str) -> dict[str, Any] | None:
+    def _read_cache(self, key: str) -> Any | None:
         path = self._cache_dir / f"{key}.json"
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
         return None
 
-    def _write_cache(self, key: str, data: dict[str, Any]) -> None:
+    def _write_cache(self, key: str, data: Any) -> None:
         path = self._cache_dir / f"{key}.json"
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
@@ -97,7 +96,7 @@ class SemanticScholarClient(PaperCollectorPort):
         client: httpx.AsyncClient,
         venue: str,
         year_range: str,
-        token: str,  # Pagination token
+        token: str,
     ) -> dict[str, Any]:
         cache_key = _build_cache_key(venue, year_range, token)
         cached = self._read_cache(cache_key)
@@ -108,7 +107,7 @@ class SemanticScholarClient(PaperCollectorPort):
         params: dict[str, str] = {
             "venue": venue,
             "year": year_range,
-            "fields": _FIELDS,
+            "fields": _BULK_FIELDS,
         }
         if token:
             params["token"] = token
@@ -123,14 +122,44 @@ class SemanticScholarClient(PaperCollectorPort):
         self._write_cache(cache_key, data)
         return data
 
-    # main method
+    async def _fetch_references(
+        self,
+        client: httpx.AsyncClient,
+        paper_id: str,
+    ) -> tuple[str, ...]:
+        """Fetch referenced paper IDs for a single paper via the references endpoint."""
+        cache_key = f"refs_{paper_id}"
+        cached = self._read_cache(cache_key)
+        if cached is not None:
+            return tuple(cached)
+
+        resp = await client.get(
+            f"{self._base_url}{_REFS_ENDPOINT.format(paper_id)}",
+            params={"fields": _REFS_FIELDS, "limit": 1000},
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        ref_ids = tuple(
+            item["citedPaper"]["paperId"]
+            for item in data.get("data", [])
+            if item.get("citedPaper", {}).get("paperId")
+        )
+        self._write_cache(cache_key, list(ref_ids))
+        return ref_ids
+
     async def collect(
         self,
         venues: list[str],
         year_start: int,
         year_end: int,
     ) -> list[Paper]:
-        """Collect all papers for given venues and year range via token-based pagination."""
+        """Collect top-cited papers with their referenced_work_ids.
+
+        Per page: bulk metadata → filter top citation_top_percent → fetch references.
+        This minimises API calls by fetching references only for filtered papers.
+        """
         papers: list[Paper] = []
         year_range = f"{year_start}-{year_end}"
 
@@ -152,10 +181,21 @@ class SemanticScholarClient(PaperCollectorPort):
                     if not results:
                         break
 
-                    for raw_paper in results:
-                        paper = _parse_paper(raw_paper)
-                        if paper is not None:
-                            papers.append(paper)
+                    page_papers = [
+                        p for raw in results
+                        if (p := _parse_paper(raw)) is not None
+                    ]
+
+                    # Filter to top-cited papers before fetching references
+                    filtered = filter_top_cited(page_papers, self._top_percent)
+                    logger.info(
+                        "venue=%s page=%d: %d → %d after filter",
+                        venue, page_num, len(page_papers), len(filtered),
+                    )
+
+                    for paper in filtered:
+                        ref_ids = await self._fetch_references(client, paper.paper_id)
+                        papers.append(paper.model_copy(update={"referenced_work_ids": ref_ids}))
 
                     token = data.get("token") or ""
                     if not token:
