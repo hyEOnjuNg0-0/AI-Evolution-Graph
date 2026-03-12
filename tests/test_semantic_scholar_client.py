@@ -43,10 +43,22 @@ def _make_raw_paper(
     }
 
 
-def _make_refs_response(paper_ids: list[str]) -> dict[str, Any]:
-    return {
-        "data": [{"citedPaper": {"paperId": pid}} for pid in paper_ids]
-    }
+def _make_batch_response(
+    paper_ids: list[str],
+    refs_by_id: dict[str, list[str]] | None = None,
+    abstract_by_id: dict[str, str | None] | None = None,
+) -> list[dict[str, Any]]:
+    """Build a POST /paper/batch style response list."""
+    refs_by_id = refs_by_id or {}
+    abstract_by_id = abstract_by_id or {}
+    return [
+        {
+            "paperId": pid,
+            "abstract": abstract_by_id.get(pid),
+            "references": [{"paperId": r} for r in refs_by_id.get(pid, [])],
+        }
+        for pid in paper_ids
+    ]
 
 
 class TestParsePaper:
@@ -63,7 +75,8 @@ class TestParsePaper:
         assert len(paper.authors) == 1
         assert paper.authors[0].name == "Alice"
         assert paper.authors[0].author_id == "100"
-        # referenced_work_ids is always empty; populated via _fetch_references
+        # abstract and referenced_work_ids are always empty; populated via _fetch_batch
+        assert paper.abstract is None
         assert paper.referenced_work_ids == ()
 
     def test_missing_paper_id_returns_none(self) -> None:
@@ -103,77 +116,101 @@ class TestParsePaper:
 
 
 @pytest.mark.asyncio
-class TestFetchReferences:
-    async def test_parses_cited_paper_ids(self, tmp_path: Any) -> None:
-        s2 = SemanticScholarClient(_make_settings(tmp_path))  # type: ignore[arg-type]
-
-        http = AsyncMock()
+class TestFetchBatch:
+    def _make_client(self, batch_response: list[dict[str, Any]]) -> Any:
         resp = AsyncMock()
         resp.raise_for_status = lambda: None
-        resp.json = lambda: _make_refs_response(["ref001", "ref002"])
-        http.get = AsyncMock(return_value=resp)
+        resp.json = lambda: batch_response
 
-        result = await s2._fetch_references(http, "paper123")
-        assert result == ("ref001", "ref002")
+        inst = AsyncMock()
+        inst.post = AsyncMock(return_value=resp)
+        return inst
+
+    async def test_returns_abstract_and_refs(self, tmp_path: Any) -> None:
+        s2 = SemanticScholarClient(_make_settings(tmp_path))  # type: ignore[arg-type]
+        batch = _make_batch_response(
+            ["P1"],
+            refs_by_id={"P1": ["R1", "R2"]},
+            abstract_by_id={"P1": "Test abstract."},
+        )
+        http = self._make_client(batch)
+
+        result = await s2._fetch_batch(http, ["P1"])
+
+        assert result["P1"]["abstract"] == "Test abstract."
+        assert result["P1"]["referenced_work_ids"] == ("R1", "R2")
 
     async def test_skips_null_paper_id(self, tmp_path: Any) -> None:
         s2 = SemanticScholarClient(_make_settings(tmp_path))  # type: ignore[arg-type]
+        resp_data = [{"paperId": None, "abstract": None, "references": []}]
+        http = self._make_client(resp_data)
 
-        http = AsyncMock()
-        resp = AsyncMock()
-        resp.raise_for_status = lambda: None
-        resp.json = lambda: {
-            "data": [
-                {"citedPaper": {"paperId": "ref001"}},
-                {"citedPaper": {"paperId": None}},
-                {"citedPaper": {}},
-            ]
-        }
-        http.get = AsyncMock(return_value=resp)
+        result = await s2._fetch_batch(http, ["P1"])
+        assert result == {}
 
-        result = await s2._fetch_references(http, "paper123")
-        assert result == ("ref001",)
+    async def test_skips_null_ref_ids(self, tmp_path: Any) -> None:
+        s2 = SemanticScholarClient(_make_settings(tmp_path))  # type: ignore[arg-type]
+        resp_data = [{
+            "paperId": "P1",
+            "abstract": None,
+            "references": [{"paperId": "R1"}, {"paperId": None}, {}],
+        }]
+        http = self._make_client(resp_data)
+
+        result = await s2._fetch_batch(http, ["P1"])
+        assert result["P1"]["referenced_work_ids"] == ("R1",)
 
     async def test_uses_cache(self, tmp_path: Any) -> None:
         s2 = SemanticScholarClient(_make_settings(tmp_path))  # type: ignore[arg-type]
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
-        (cache_dir / "refs_paper123.json").write_text(
-            json.dumps(["cached_ref1", "cached_ref2"])
+        (cache_dir / "batch_P1.json").write_text(
+            json.dumps({"abstract": "cached", "referenced_work_ids": ["C1"]})
         )
 
         http = AsyncMock()
-        http.get = AsyncMock()
+        http.post = AsyncMock()
 
-        result = await s2._fetch_references(http, "paper123")
-        assert result == ("cached_ref1", "cached_ref2")
-        http.get.assert_not_called()
+        result = await s2._fetch_batch(http, ["P1"])
+        assert result["P1"]["abstract"] == "cached"
+        assert result["P1"]["referenced_work_ids"] == ["C1"]
+        http.post.assert_not_called()
 
 
 @pytest.mark.asyncio
 class TestSemanticScholarClientCollect:
-    def _make_mock_get(self, bulk_pages: list[dict], refs_by_id: dict[str, list[str]]) -> Any:
-        """Return a mock get() that dispatches on URL: bulk search vs references."""
+    def _make_mock_get_post(
+        self,
+        bulk_pages: list[dict],
+        refs_by_id: dict[str, list[str]],
+        abstract_by_id: dict[str, str | None] | None = None,
+    ) -> tuple[Any, Any]:
+        """Return (mock_get, mock_post) for bulk search and batch endpoint."""
+        abstract_by_id = abstract_by_id or {}
         bulk_call = 0
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             nonlocal bulk_call
             resp = AsyncMock()
             resp.raise_for_status = lambda: None
-            if "references" in url:
-                paper_id = url.split("/paper/")[1].split("/references")[0]
-                resp.json = lambda pid=paper_id: _make_refs_response(refs_by_id.get(pid, []))
-            else:
-                data = bulk_pages[bulk_call]
-                bulk_call += 1
-                resp.json = lambda d=data: d
+            data = bulk_pages[bulk_call]
+            bulk_call += 1
+            resp.json = lambda d=data: d
             return resp
 
-        return mock_get
+        async def mock_post(url: str, **kwargs: Any) -> Any:
+            resp = AsyncMock()
+            resp.raise_for_status = lambda: None
+            ids = (kwargs.get("json") or {}).get("ids", [])
+            resp.json = lambda: _make_batch_response(ids, refs_by_id, abstract_by_id)
+            return resp
 
-    def _patch_client(self, mock_get: Any) -> Any:
+        return mock_get, mock_post
+
+    def _patch_client(self, mock_get: Any, mock_post: Any) -> Any:
         inst = AsyncMock()
         inst.get = mock_get
+        inst.post = mock_post
         inst.__aenter__ = AsyncMock(return_value=inst)
         inst.__aexit__ = AsyncMock(return_value=False)
         return inst
@@ -183,36 +220,42 @@ class TestSemanticScholarClientCollect:
         page1 = {"total": 2, "token": "next_token", "data": [_make_raw_paper(paper_id="P1")]}
         page2 = {"total": 2, "data": [_make_raw_paper(paper_id="P2")]}
 
-        mock_get = self._make_mock_get([page1, page2], {"P1": ["R1"], "P2": ["R2"]})
+        mock_get, mock_post = self._make_mock_get_post(
+            [page1, page2],
+            {"P1": ["R1"], "P2": ["R2"]},
+        )
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = self._patch_client(mock_get)
+            mock_cls.return_value = self._patch_client(mock_get, mock_post)
             papers = await SemanticScholarClient(  # type: ignore[arg-type]
                 _make_settings(tmp_path)
             ).collect(["NeurIPS"], 2020, 2023)
 
         assert len(papers) == 2
         assert {p.paper_id for p in papers} == {"P1", "P2"}
-        assert papers[0].referenced_work_ids == ("R1",) or papers[1].referenced_work_ids == ("R1",)
+        assert any(p.referenced_work_ids == ("R1",) for p in papers)
 
-    async def test_collect_populates_referenced_work_ids(self, tmp_path: Any) -> None:
-        """referenced_work_ids is populated from the references endpoint."""
+    async def test_collect_populates_abstract_and_refs(self, tmp_path: Any) -> None:
+        """abstract and referenced_work_ids are populated from _fetch_batch."""
         page = {"total": 1, "data": [_make_raw_paper(paper_id="P1")]}
-        mock_get = self._make_mock_get([page], {"P1": ["ref_a", "ref_b"]})
+        mock_get, mock_post = self._make_mock_get_post(
+            [page],
+            {"P1": ["ref_a", "ref_b"]},
+            {"P1": "An interesting abstract."},
+        )
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = self._patch_client(mock_get)
+            mock_cls.return_value = self._patch_client(mock_get, mock_post)
             papers = await SemanticScholarClient(  # type: ignore[arg-type]
                 _make_settings(tmp_path)
             ).collect(["NeurIPS"], 2020, 2023)
 
         assert len(papers) == 1
         assert papers[0].referenced_work_ids == ("ref_a", "ref_b")
+        assert papers[0].abstract == "An interesting abstract."
 
-    async def test_collect_filters_before_fetching_refs(self, tmp_path: Any) -> None:
-        """Only top-cited papers get a references call."""
-        # Two papers from same year: citation_count 100 vs 1
-        # With top_percent=0.5, only the top 1 (citation_count=100) survives
+    async def test_collect_filters_before_fetching_batch(self, tmp_path: Any) -> None:
+        """Only top-cited papers get a batch call."""
         page = {
             "total": 2,
             "data": [
@@ -220,31 +263,41 @@ class TestSemanticScholarClientCollect:
                 _make_raw_paper(paper_id="LOW", citation_count=1),
             ],
         }
-        refs_call_ids: list[str] = []
+        batch_call_ids: list[list[str]] = []
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
             resp.raise_for_status = lambda: None
-            if "references" in url:
-                pid = url.split("/paper/")[1].split("/references")[0]
-                refs_call_ids.append(pid)
-                resp.json = lambda: _make_refs_response([])
-            else:
-                resp.json = lambda: page
+            resp.json = lambda: page
+            return resp
+
+        async def mock_post(url: str, **kwargs: Any) -> Any:
+            resp = AsyncMock()
+            resp.raise_for_status = lambda: None
+            ids = (kwargs.get("json") or {}).get("ids", [])
+            batch_call_ids.append(ids)
+            resp.json = lambda: _make_batch_response(ids, {}, {})
             return resp
 
         with patch("httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = self._patch_client(mock_get)
+            inst = AsyncMock()
+            inst.get = mock_get
+            inst.post = mock_post
+            inst.__aenter__ = AsyncMock(return_value=inst)
+            inst.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = inst
             papers = await SemanticScholarClient(  # type: ignore[arg-type]
                 _make_settings(tmp_path, top_percent=0.5)
             ).collect(["NeurIPS"], 2020, 2023)
 
         assert len(papers) == 1
         assert papers[0].paper_id == "HIGH"
-        assert refs_call_ids == ["HIGH"]  # LOW never triggered a references call
+        # LOW must not appear in any batch call
+        all_ids = [pid for call in batch_call_ids for pid in call]
+        assert "LOW" not in all_ids
 
-    async def test_collect_uses_cache(self, tmp_path: Any) -> None:
-        """Cached bulk pages are used without HTTP calls."""
+    async def test_collect_uses_bulk_cache(self, tmp_path: Any) -> None:
+        """Cached bulk pages are used without HTTP GET calls."""
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir()
 
@@ -256,13 +309,17 @@ class TestSemanticScholarClientCollect:
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             nonlocal bulk_get_calls
+            bulk_get_calls += 1
             resp = AsyncMock()
             resp.raise_for_status = lambda: None
-            if "references" in url:
-                resp.json = lambda: _make_refs_response([])
-            else:
-                bulk_get_calls += 1
-                resp.json = lambda: {}
+            resp.json = lambda: {}
+            return resp
+
+        async def mock_post(url: str, **kwargs: Any) -> Any:
+            resp = AsyncMock()
+            resp.raise_for_status = lambda: None
+            ids = (kwargs.get("json") or {}).get("ids", [])
+            resp.json = lambda: _make_batch_response(ids, {}, {})
             return resp
 
         settings = type("S", (), {
@@ -275,6 +332,7 @@ class TestSemanticScholarClientCollect:
         with patch("httpx.AsyncClient") as mock_cls:
             inst = AsyncMock()
             inst.get = mock_get
+            inst.post = mock_post
             inst.__aenter__ = AsyncMock(return_value=inst)
             inst.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = inst
@@ -296,16 +354,21 @@ class TestSemanticScholarClientCollect:
         async def mock_get(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
             resp.raise_for_status = lambda: None
-            if "references" in url:
-                resp.json = lambda: _make_refs_response([])
-            else:
-                venue = kwargs.get("params", {}).get("venue", "")
-                resp.json = lambda v=venue: pages.get(v, {"total": 0, "data": []})
+            venue = kwargs.get("params", {}).get("venue", "")
+            resp.json = lambda v=venue: pages.get(v, {"total": 0, "data": []})
+            return resp
+
+        async def mock_post(url: str, **kwargs: Any) -> Any:
+            resp = AsyncMock()
+            resp.raise_for_status = lambda: None
+            ids = (kwargs.get("json") or {}).get("ids", [])
+            resp.json = lambda: _make_batch_response(ids, {}, {})
             return resp
 
         with patch("httpx.AsyncClient") as mock_cls:
             inst = AsyncMock()
             inst.get = mock_get
+            inst.post = mock_post
             inst.__aenter__ = AsyncMock(return_value=inst)
             inst.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = inst

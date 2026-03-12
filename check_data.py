@@ -20,12 +20,14 @@ LIMIT = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 
 BASE = "https://api.semanticscholar.org/graph/v1"
 
-# Bulk search does not support 'references' field
+# Bulk search does not support 'abstract' or 'references' fields
 BULK_FIELDS = "title,year,venue,citationCount,referenceCount,authors"
+# Batch endpoint fields to verify support for abstract and references
+BATCH_FIELDS = "abstract,references"
 
 client = httpx.Client(timeout=30)
 
-# 1) Bulk search
+# 1) Bulk search — get paper IDs
 r = client.get(
     f"{BASE}/paper/search/bulk",
     params={"venue": VENUE, "year": YEAR, "fields": BULK_FIELDS},
@@ -36,22 +38,37 @@ data = r.json()
 print(f"total: {data.get('total', 0)}  |  this page: {len(data.get('data', []))}\n")
 
 top = sorted(data.get("data", []), key=lambda x: x.get("citationCount", 0), reverse=True)[:LIMIT]
+paper_ids = [p["paperId"] for p in top]
 
 for i, paper in enumerate(top, 1):
-    pid = paper["paperId"]
-
     print("=" * 80)
     print(f"[{i}/{LIMIT}] BULK SEARCH RESPONSE")
     print("=" * 80)
     print(json.dumps(paper, indent=2, ensure_ascii=False))
 
-    # 2) /paper/{id}/references — check actual response structure
-    import time; time.sleep(1)
-    r2 = client.get(f"{BASE}/paper/{pid}/references", params={"limit": 3})
-    print(f"\n{'=' * 80}")
-    print(f"REFERENCES ENDPOINT (limit=3)")
-    print("=" * 80)
-    print(json.dumps(r2.json() if r2.status_code == 200 else {"error": r2.status_code}, indent=2, ensure_ascii=False))
-    print()
+# 2) POST /paper/batch — verify abstract and references fields
+print(f"\n{'=' * 80}")
+print(f"POST /paper/batch  fields={BATCH_FIELDS}  ids={paper_ids}")
+print("=" * 80)
+
+r2 = client.post(
+    f"{BASE}/paper/batch",
+    params={"fields": BATCH_FIELDS},
+    json={"ids": paper_ids},
+)
+print(f"status: {r2.status_code}")
+if r2.status_code == 200:
+    batch_data = r2.json()
+    for item in batch_data:
+        pid = item.get("paperId", "?")
+        abstract = item.get("abstract")
+        refs = item.get("references", [])
+        print(f"\npaperId : {pid}")
+        print(f"abstract: {repr(abstract) if abstract else None}")
+        print(f"references ({len(refs)} items, showing first 3):")
+        for ref in refs[:3]:
+            print(f"  {json.dumps(ref, ensure_ascii=False)}")
+else:
+    print(json.dumps(r2.json(), indent=2, ensure_ascii=False))
 
 client.close()

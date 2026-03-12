@@ -24,10 +24,11 @@ from aievograph.domain.services.paper_filter import filter_top_cited
 logger = logging.getLogger(__name__)
 
 _BULK_SEARCH_ENDPOINT = "/paper/search/bulk"
-_REFS_ENDPOINT = "/paper/{}/references"
-# abstract causes HTTP 500 on bulk search endpoint — omitted intentionally
+_BATCH_ENDPOINT = "/paper/batch"
+# abstract and references are not supported by the bulk search endpoint (HTTP 500);
+# fetched via POST /paper/batch after per-page filtering.
 _BULK_FIELDS = "title,year,venue,citationCount,referenceCount,authors"
-_REFS_FIELDS = "paperId"
+_BATCH_FIELDS = "abstract,references"
 
 
 def _parse_paper(raw: dict[str, Any]) -> Paper | None:
@@ -122,32 +123,57 @@ class SemanticScholarClient(PaperCollectorPort):
         self._write_cache(cache_key, data)
         return data
 
-    async def _fetch_references(
+    async def _fetch_batch(
         self,
         client: httpx.AsyncClient,
-        paper_id: str,
-    ) -> tuple[str, ...]:
-        """Fetch referenced paper IDs for a single paper via the references endpoint."""
-        cache_key = f"refs_{paper_id}"
-        cached = self._read_cache(cache_key)
-        if cached is not None:
-            return tuple(cached)
+        paper_ids: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch abstract and references for multiple papers via POST /paper/batch.
 
-        resp = await client.get(
-            f"{self._base_url}{_REFS_ENDPOINT.format(paper_id)}",
-            params={"fields": _REFS_FIELDS, "limit": 1000},
-            headers=self._headers(),
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        Returns a mapping of paperId -> {abstract, referenced_work_ids}.
+        Splits into chunks of 500 to stay within API limits.
+        Results are cached individually per paper.
+        """
+        results: dict[str, dict[str, Any]] = {}
+        uncached: list[str] = []
 
-        ref_ids = tuple(
-            item["citedPaper"]["paperId"]
-            for item in data.get("data", [])
-            if item.get("citedPaper", {}).get("paperId")
-        )
-        self._write_cache(cache_key, list(ref_ids))
-        return ref_ids
+        for pid in paper_ids:
+            cached = self._read_cache(f"batch_{pid}")
+            if cached is not None:
+                results[pid] = cached
+            else:
+                uncached.append(pid)
+
+        chunk_size = 500
+        for i in range(0, len(uncached), chunk_size):
+            chunk = uncached[i : i + chunk_size]
+            resp = await client.post(
+                f"{self._base_url}{_BATCH_ENDPOINT}",
+                params={"fields": _BATCH_FIELDS},
+                json={"ids": chunk},
+                headers=self._headers(),
+            )
+            resp.raise_for_status()
+            for item in resp.json():
+                pid = item.get("paperId") or ""
+                if not pid:
+                    continue
+                ref_ids = tuple(
+                    ref["paperId"]
+                    for ref in item.get("references") or []
+                    if ref.get("paperId")
+                )
+                entry: dict[str, Any] = {
+                    "abstract": item.get("abstract") or None,
+                    "referenced_work_ids": ref_ids,
+                }
+                self._write_cache(f"batch_{pid}", {
+                    "abstract": entry["abstract"],
+                    "referenced_work_ids": list(ref_ids),
+                })
+                results[pid] = entry
+
+        return results
 
     async def collect(
         self,
@@ -193,9 +219,13 @@ class SemanticScholarClient(PaperCollectorPort):
                         venue, page_num, len(page_papers), len(filtered),
                     )
 
+                    batch = await self._fetch_batch(client, [p.paper_id for p in filtered])
                     for paper in filtered:
-                        ref_ids = await self._fetch_references(client, paper.paper_id)
-                        papers.append(paper.model_copy(update={"referenced_work_ids": ref_ids}))
+                        extra = batch.get(paper.paper_id, {})
+                        papers.append(paper.model_copy(update={
+                            "abstract": extra.get("abstract"),
+                            "referenced_work_ids": extra.get("referenced_work_ids", ()),
+                        }))
 
                     token = data.get("token") or ""
                     if not token:
