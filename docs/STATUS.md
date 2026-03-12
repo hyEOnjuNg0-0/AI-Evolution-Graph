@@ -8,12 +8,12 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-02-27
+> 마지막 업데이트: 2026-03-12
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
 | 0 | 프로젝트 기반 설정 | 🟢 완료 | 100% |
-| 1 | Layer A-1 — Temporal Citation Graph | 🟡 진행 중 | 30% |
+| 1 | Layer A-1 — Temporal Citation Graph | 🟢 완료 | 100% |
 | 2 | Layer A-2 — Method Evolution Graph | 🔴 미착수 | 0% |
 | 3 | Layer B — Retrieval | 🔴 미착수 | 0% |
 | 4 | Layer C — Ranking | 🔴 미착수 | 0% |

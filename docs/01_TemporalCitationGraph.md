@@ -41,15 +41,15 @@ Semantic Scholar Bulk API → Paper 수집/필터링 → Paper 노드 생성 →
 **입력**: Paper 리스트  
 **출력**: Temporal Citation Graph (Neo4j)
 
-- [ ] Neo4j 어댑터 구현 (Repository 패턴)
-- [ ] Paper 노드 생성
-- [ ] Citation edge 생성 (참조 관계)
-- [ ] Neo4j 노드/관계 스키마: `(:Paper)-[:CITES]->(:Paper)`, `(:Paper)-[:WRITTEN_BY]->(:Author)`
+- [x] Neo4j 어댑터 구현 (Repository 패턴)
+- [x] Paper 노드 생성
+- [x] Citation edge 생성 (참조 관계)
+- [x] Neo4j 노드/관계 스키마: `(:Paper)-[:CITES]->(:Paper)`, `(:Paper)-[:WRITTEN_BY]->(:Author)`
   - Author는 Semantic Scholar author ID 사용
-- [ ] Timestamp 속성 (publication_year) 인덱싱
-- [ ] 시간 범위 필터링 쿼리 구현
-- [ ] 단위 테스트: 그래프 CRUD, 시간 필터
-- [ ] 통합 테스트: Semantic Scholar → Neo4j 파이프라인
+- [x] Timestamp 속성 (publication_year) 인덱싱
+- [x] 시간 범위 필터링 쿼리 구현
+- [x] 단위 테스트: 그래프 CRUD, 시간 필터
+- [x] 통합 테스트: Semantic Scholar → Neo4j 파이프라인
 
 ---
 
