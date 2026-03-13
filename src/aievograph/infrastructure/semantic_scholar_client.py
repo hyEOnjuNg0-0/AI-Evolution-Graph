@@ -8,6 +8,7 @@ Bulk search (metadata) → per-page filter → references endpoint
 Return top-cited Paper objects with referenced_work_ids populated
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -29,6 +30,9 @@ _BATCH_ENDPOINT = "/paper/batch"
 # fetched via POST /paper/batch after per-page filtering.
 _BULK_FIELDS = "title,year,venue,citationCount,referenceCount,authors"
 _BATCH_FIELDS = "abstract,references"
+
+_MAX_RETRIES = 5
+_RETRY_BASE_DELAY = 5.0  # seconds; doubles on each attempt
 
 
 def _parse_paper(raw: dict[str, Any]) -> Paper | None:
@@ -92,6 +96,64 @@ class SemanticScholarClient(PaperCollectorPort):
         path = self._cache_dir / f"{key}.json"
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
+    async def _get_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """GET with exponential backoff on 429 / 5xx."""
+        for attempt in range(_MAX_RETRIES):
+            resp = await client.get(url, **kwargs)
+            if resp.status_code == 429 or resp.status_code >= 500:
+                retry_after = resp.headers.get("Retry-After")
+                delay = float(retry_after) if retry_after else _RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "HTTP %d — waiting %.1fs before retry (attempt %d/%d)",
+                    resp.status_code, delay, attempt + 1, _MAX_RETRIES,
+                )
+                await asyncio.sleep(delay)
+                continue
+            resp.raise_for_status()
+            return resp
+        raise RuntimeError(f"Max retries ({_MAX_RETRIES}) exceeded for GET {url}")
+
+    async def _post_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """POST with exponential backoff on 429 / 5xx."""
+        for attempt in range(_MAX_RETRIES):
+            resp = await client.post(url, **kwargs)
+            if resp.status_code == 429 or resp.status_code >= 500:
+                retry_after = resp.headers.get("Retry-After")
+                delay = float(retry_after) if retry_after else _RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "HTTP %d — waiting %.1fs before retry (attempt %d/%d)",
+                    resp.status_code, delay, attempt + 1, _MAX_RETRIES,
+                )
+                await asyncio.sleep(delay)
+                continue
+            resp.raise_for_status()
+            return resp
+        raise RuntimeError(f"Max retries ({_MAX_RETRIES}) exceeded for POST {url}")
+
+    def _checkpoint_path(self, venues: list[str], year_range: str) -> Path:
+        key = hashlib.sha256(
+            f"{','.join(sorted(venues))}:{year_range}".encode()
+        ).hexdigest()[:16]
+        return self._cache_dir / f"checkpoint_{key}.json"
+
+    def _load_checkpoint(self, path: Path) -> dict[str, list[dict[str, Any]]]:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        return {}
+
+    def _save_checkpoint(self, path: Path, data: dict[str, Any]) -> None:
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
     async def _fetch_page(
         self,
         client: httpx.AsyncClient,
@@ -113,12 +175,12 @@ class SemanticScholarClient(PaperCollectorPort):
         if token:
             params["token"] = token
 
-        resp = await client.get(
+        resp = await self._get_with_retry(
+            client,
             f"{self._base_url}{_BULK_SEARCH_ENDPOINT}",
             params=params,
             headers=self._headers(),
         )
-        resp.raise_for_status()
         data = resp.json()
         self._write_cache(cache_key, data)
         return data
@@ -147,13 +209,13 @@ class SemanticScholarClient(PaperCollectorPort):
         chunk_size = 500
         for i in range(0, len(uncached), chunk_size):
             chunk = uncached[i : i + chunk_size]
-            resp = await client.post(
+            resp = await self._post_with_retry(
+                client,
                 f"{self._base_url}{_BATCH_ENDPOINT}",
                 params={"fields": _BATCH_FIELDS},
                 json={"ids": chunk},
                 headers=self._headers(),
             )
-            resp.raise_for_status()
             for item in resp.json():
                 pid = item.get("paperId") or ""
                 if not pid:
@@ -183,14 +245,31 @@ class SemanticScholarClient(PaperCollectorPort):
     ) -> list[Paper]:
         """Collect top-cited papers with their referenced_work_ids.
 
-        Per page: bulk metadata → filter top citation_top_percent → fetch references.
-        This minimises API calls by fetching references only for filtered papers.
+        Resumes from a per-venue checkpoint if available, so re-runs skip
+        already-completed venues. Each venue is saved to the checkpoint after
+        all its pages are fetched and filtered.
         """
-        papers: list[Paper] = []
         year_range = f"{year_start}-{year_end}"
+        checkpoint_path = self._checkpoint_path(venues, year_range)
+        checkpoint = self._load_checkpoint(checkpoint_path)
+
+        papers: list[Paper] = []
+
+        # Restore papers from previously completed venues
+        for venue, raw_papers in checkpoint.items():
+            loaded = [Paper.model_validate(p) for p in raw_papers]
+            papers.extend(loaded)
+            logger.info(
+                "Resumed venue=%s: loaded %d papers from checkpoint", venue, len(loaded)
+            )
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             for venue in venues:
+                if venue in checkpoint:
+                    logger.info("Skipping venue=%s (already in checkpoint)", venue)
+                    continue
+
+                venue_papers: list[Paper] = []
                 token = ""
                 page_num = 0
                 while True:
@@ -222,7 +301,7 @@ class SemanticScholarClient(PaperCollectorPort):
                     batch = await self._fetch_batch(client, [p.paper_id for p in filtered])
                     for paper in filtered:
                         extra = batch.get(paper.paper_id, {})
-                        papers.append(paper.model_copy(update={
+                        venue_papers.append(paper.model_copy(update={
                             "abstract": extra.get("abstract"),
                             "referenced_work_ids": extra.get("referenced_work_ids", ()),
                         }))
@@ -231,6 +310,10 @@ class SemanticScholarClient(PaperCollectorPort):
                     if not token:
                         break
 
+                # Save completed venue to checkpoint before moving to the next
+                checkpoint[venue] = [p.model_dump() for p in venue_papers]
+                self._save_checkpoint(checkpoint_path, checkpoint)
+                papers.extend(venue_papers)
                 logger.info(
                     "Finished venue=%s total_collected=%d", venue, len(papers)
                 )

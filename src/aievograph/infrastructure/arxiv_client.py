@@ -5,6 +5,7 @@ Semantic Scholar API  →  citation count + reference enrichment
 ArxivClient.collect(categories, year_start, year_end)
       ↓
  1. Paginate arXiv search per category → collect arXiv IDs (up to max_papers limit)
+    (checkpoint saved per category; completed categories are skipped on re-run)
  2. Deduplicate across categories
  3. POST S2 /paper/batch (ArXiv:<id>) → citation counts → filter_top_cited
  4. POST S2 /paper/batch (S2 paperId)  → abstract + references for filtered papers only
@@ -41,6 +42,9 @@ _S2_DETAIL_FIELDS = "abstract,references"
 _ARXIV_PAGE_SIZE = 500    # arXiv API recommended max per request
 _S2_CHUNK_SIZE = 500      # S2 batch limit
 _ARXIV_REQUEST_DELAY = 3.0  # seconds between arXiv requests (per API guidelines)
+
+_MAX_RETRIES = 5
+_RETRY_BASE_DELAY = 5.0  # seconds; doubles on each attempt
 
 
 def _extract_arxiv_id(entry_id: str) -> str | None:
@@ -137,6 +141,42 @@ class ArxivClient(PaperCollectorPort):
             json.dumps(data, ensure_ascii=False), encoding="utf-8"
         )
 
+    def _checkpoint_path(self, categories: list[str], year_range: str) -> Path:
+        key = hashlib.sha256(
+            f"{','.join(sorted(categories))}:{year_range}".encode()
+        ).hexdigest()[:16]
+        return self._cache_dir / f"checkpoint_{key}.json"
+
+    def _load_checkpoint(self, path: Path) -> dict[str, list[dict[str, Any]]]:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        return {}
+
+    def _save_checkpoint(self, path: Path, data: dict[str, Any]) -> None:
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    async def _s2_post_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """POST to S2 with exponential backoff on 429 / 5xx."""
+        for attempt in range(_MAX_RETRIES):
+            resp = await client.post(url, **kwargs)
+            if resp.status_code == 429 or resp.status_code >= 500:
+                retry_after = resp.headers.get("Retry-After")
+                delay = float(retry_after) if retry_after else _RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "HTTP %d — waiting %.1fs before retry (attempt %d/%d)",
+                    resp.status_code, delay, attempt + 1, _MAX_RETRIES,
+                )
+                await asyncio.sleep(delay)
+                continue
+            resp.raise_for_status()
+            return resp
+        raise RuntimeError(f"Max retries ({_MAX_RETRIES}) exceeded for POST {url}")
+
     async def _fetch_arxiv_page(
         self,
         client: httpx.AsyncClient,
@@ -193,13 +233,13 @@ class ArxivClient(PaperCollectorPort):
             chunk = uncached[i : i + _S2_CHUNK_SIZE]
             s2_ids = [f"ArXiv:{aid}" for aid in chunk]
 
-            resp = await client.post(
+            resp = await self._s2_post_with_retry(
+                client,
                 f"{self._s2_base_url}{_S2_BATCH_ENDPOINT}",
                 params={"fields": _S2_CITATION_FIELDS},
                 json={"ids": s2_ids},
                 headers=self._s2_headers(),
             )
-            resp.raise_for_status()
 
             for item in resp.json():
                 if not item:  # S2 returns null for papers it cannot find
@@ -246,13 +286,13 @@ class ArxivClient(PaperCollectorPort):
 
         for i in range(0, len(uncached), _S2_CHUNK_SIZE):
             chunk = uncached[i : i + _S2_CHUNK_SIZE]
-            resp = await client.post(
+            resp = await self._s2_post_with_retry(
+                client,
                 f"{self._s2_base_url}{_S2_BATCH_ENDPOINT}",
                 params={"fields": _S2_DETAIL_FIELDS},
                 json={"ids": chunk},
                 headers=self._s2_headers(),
             )
-            resp.raise_for_status()
 
             for item in resp.json():
                 if not item:
@@ -283,19 +323,38 @@ class ArxivClient(PaperCollectorPort):
         """Collect top-cited arXiv preprints by category.
 
         `venues` is interpreted as arXiv subject categories (e.g. ["cs.AI", "cs.LG"]).
+        Per-category arXiv entries are checkpointed, so re-runs skip completed categories.
         Papers from multiple categories are deduplicated by arXiv ID before S2 enrichment,
         minimising API calls.
         """
+        year_range = f"{year_start}-{year_end}"
+        checkpoint_path = self._checkpoint_path(venues, year_range)
+        checkpoint = self._load_checkpoint(checkpoint_path)
+
         # --- Step 1: collect arXiv entries across all categories ---
         entries_by_id: dict[str, dict[str, Any]] = {}
 
+        # Restore completed categories from checkpoint
+        for category, entries in checkpoint.items():
+            for e in entries:
+                if e["arxiv_id"] not in entries_by_id:
+                    entries_by_id[e["arxiv_id"]] = e
+            logger.info(
+                "Resumed category=%s: loaded %d entries from checkpoint", category, len(entries)
+            )
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             for category in venues:
+                if category in checkpoint:
+                    logger.info("Skipping category=%s (already in checkpoint)", category)
+                    continue
+
                 logger.info(
                     "Fetching arXiv category=%s years=%d-%d", category, year_start, year_end
                 )
                 start = 0
                 category_count = 0
+                category_entries: list[dict[str, Any]] = []
 
                 while category_count < self._max_papers:
                     entries = await self._fetch_arxiv_page(
@@ -306,6 +365,7 @@ class ArxivClient(PaperCollectorPort):
 
                     new = 0
                     for e in entries:
+                        category_entries.append(e)
                         if e["arxiv_id"] not in entries_by_id:
                             entries_by_id[e["arxiv_id"]] = e
                             new += 1
@@ -320,6 +380,10 @@ class ArxivClient(PaperCollectorPort):
                         break
                     start += _ARXIV_PAGE_SIZE
                     await asyncio.sleep(_ARXIV_REQUEST_DELAY)
+
+                # Save completed category to checkpoint
+                checkpoint[category] = category_entries
+                self._save_checkpoint(checkpoint_path, checkpoint)
 
             if not entries_by_id:
                 logger.warning("No arXiv entries found for categories=%s", venues)

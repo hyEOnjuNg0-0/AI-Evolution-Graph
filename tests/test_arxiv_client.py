@@ -140,6 +140,7 @@ class TestParseArxivFeed:
 class TestFetchS2Citations:
     def _make_client(self, post_response: list[dict]) -> Any:
         resp = AsyncMock()
+        resp.status_code = 200
         resp.raise_for_status = lambda: None
         resp.json = lambda: post_response
 
@@ -198,6 +199,7 @@ class TestFetchS2Citations:
 class TestFetchS2Details:
     def _make_client(self, post_response: list[dict]) -> Any:
         resp = AsyncMock()
+        resp.status_code = 200
         resp.raise_for_status = lambda: None
         resp.json = lambda: post_response
 
@@ -250,6 +252,7 @@ class TestArxivClientCollect:
             nonlocal arxiv_get_call
             arxiv_get_call += 1
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             resp.text = arxiv_xml
             return resp
@@ -259,6 +262,7 @@ class TestArxivClientCollect:
         async def mock_post(url: str, **kwargs: Any) -> Any:
             nonlocal post_call
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             if post_call == 0:
                 resp.json = lambda: s2_cite_response
@@ -324,6 +328,7 @@ class TestArxivClientCollect:
             nonlocal get_call
             get_call += 1
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             resp.text = feed
             return resp
@@ -331,6 +336,7 @@ class TestArxivClientCollect:
         async def mock_post(url: str, **kwargs: Any) -> Any:
             nonlocal post_call
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             # Capture current post_call value before incrementing
             resp.json = lambda r=(s2_cite if post_call == 0 else s2_detail): r
@@ -369,6 +375,7 @@ class TestArxivClientCollect:
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             resp.text = feed
             return resp
@@ -378,6 +385,7 @@ class TestArxivClientCollect:
         async def mock_post(url: str, **kwargs: Any) -> Any:
             nonlocal post_call
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             ids = (kwargs.get("json") or {}).get("ids", [])
             if post_call == 0:
@@ -410,6 +418,7 @@ class TestArxivClientCollect:
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             resp.text = empty_feed
             return resp

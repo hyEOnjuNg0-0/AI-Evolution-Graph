@@ -119,6 +119,7 @@ class TestParsePaper:
 class TestFetchBatch:
     def _make_client(self, batch_response: list[dict[str, Any]]) -> Any:
         resp = AsyncMock()
+        resp.status_code = 200
         resp.raise_for_status = lambda: None
         resp.json = lambda: batch_response
 
@@ -192,6 +193,7 @@ class TestSemanticScholarClientCollect:
         async def mock_get(url: str, **kwargs: Any) -> Any:
             nonlocal bulk_call
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             data = bulk_pages[bulk_call]
             bulk_call += 1
@@ -200,6 +202,7 @@ class TestSemanticScholarClientCollect:
 
         async def mock_post(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             ids = (kwargs.get("json") or {}).get("ids", [])
             resp.json = lambda: _make_batch_response(ids, refs_by_id, abstract_by_id)
@@ -267,12 +270,14 @@ class TestSemanticScholarClientCollect:
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             resp.json = lambda: page
             return resp
 
         async def mock_post(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             ids = (kwargs.get("json") or {}).get("ids", [])
             batch_call_ids.append(ids)
@@ -311,12 +316,14 @@ class TestSemanticScholarClientCollect:
             nonlocal bulk_get_calls
             bulk_get_calls += 1
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             resp.json = lambda: {}
             return resp
 
         async def mock_post(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             ids = (kwargs.get("json") or {}).get("ids", [])
             resp.json = lambda: _make_batch_response(ids, {}, {})
@@ -353,6 +360,7 @@ class TestSemanticScholarClientCollect:
 
         async def mock_get(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             venue = kwargs.get("params", {}).get("venue", "")
             resp.json = lambda v=venue: pages.get(v, {"total": 0, "data": []})
@@ -360,6 +368,7 @@ class TestSemanticScholarClientCollect:
 
         async def mock_post(url: str, **kwargs: Any) -> Any:
             resp = AsyncMock()
+            resp.status_code = 200
             resp.raise_for_status = lambda: None
             ids = (kwargs.get("json") or {}).get("ids", [])
             resp.json = lambda: _make_batch_response(ids, {}, {})
