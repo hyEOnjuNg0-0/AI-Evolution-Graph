@@ -303,7 +303,7 @@ class SemanticScholarClient(PaperCollectorPort):
                         extra = batch.get(paper.paper_id, {})
                         venue_papers.append(paper.model_copy(update={
                             "abstract": extra.get("abstract"),
-                            "referenced_work_ids": extra.get("referenced_work_ids", ()),
+                            "referenced_work_ids": tuple(extra.get("referenced_work_ids") or ()),
                         }))
 
                     token = data.get("token") or ""
