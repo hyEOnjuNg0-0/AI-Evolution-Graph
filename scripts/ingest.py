@@ -13,8 +13,9 @@ import sys
 
 from neo4j import GraphDatabase
 
-from aievograph.config.settings import TARGET_VENUES, get_settings
+from aievograph.config.settings import TARGET_ARXIV_CATEGORIES, TARGET_VENUES, get_settings
 from aievograph.domain.services.citation_graph_service import CitationGraphService
+from aievograph.infrastructure.arxiv_client import ArxivClient
 from aievograph.infrastructure.neo4j_graph_repository import Neo4jGraphRepository
 from aievograph.infrastructure.semantic_scholar_client import SemanticScholarClient
 
@@ -46,6 +47,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="End year (default: COLLECT_YEAR_END from .env)",
     )
+    parser.add_argument(
+        "--arxiv",
+        action="store_true",
+        default=False,
+        help="Also collect arXiv preprints via arXiv API + Semantic Scholar enrichment",
+    )
+    parser.add_argument(
+        "--arxiv-categories",
+        nargs="+",
+        default=None,
+        help="arXiv categories to collect (default: TARGET_ARXIV_CATEGORIES from settings)",
+    )
     return parser.parse_args()
 
 
@@ -64,7 +77,19 @@ async def main() -> None:
     # 1. Collect papers from Semantic Scholar
     collector = SemanticScholarClient(settings)
     papers = await collector.collect(venues, year_start, year_end)
-    logger.info("Collected %d papers.", len(papers))
+    logger.info("Collected %d conference papers.", len(papers))
+
+    # 1b. Optionally collect arXiv preprints via arXiv API + S2 enrichment
+    if args.arxiv:
+        categories = args.arxiv_categories or TARGET_ARXIV_CATEGORIES
+        logger.info("Collecting arXiv papers — categories=%s", categories)
+        arxiv_collector = ArxivClient(settings)
+        arxiv_papers = await arxiv_collector.collect(categories, year_start, year_end)
+        logger.info("Collected %d arXiv papers.", len(arxiv_papers))
+        # Merge: deduplicate by paper_id (conference copy takes precedence)
+        existing_ids = {p.paper_id for p in papers}
+        papers = papers + [p for p in arxiv_papers if p.paper_id not in existing_ids]
+        logger.info("Total after merge: %d papers.", len(papers))
 
     if not papers:
         logger.warning("No papers collected. Check venues/year range or API key.")

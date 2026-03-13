@@ -8,7 +8,7 @@ AiEvoGraph/
 │   └── aievograph/
 │       ├── config/
 │       │   ├── __init__.py
-│       │   └── settings.py                    # AppSettings + TARGET_VENUES
+│       │   └── settings.py                    # AppSettings + TARGET_VENUES + TARGET_ARXIV_CATEGORIES
 │       ├── domain/
 │       │   ├── ports/
 │       │   │   ├── __init__.py
@@ -24,6 +24,7 @@ AiEvoGraph/
 │       │   ├── __init__.py
 │       │   ├── logging.py
 │       │   ├── neo4j_graph_repository.py       # Neo4jGraphRepository (GraphRepositoryPort 구현체)
+│       │   ├── arxiv_client.py                 # arXiv API 어댑터 (카테고리별 수집 + S2 enrichment)
 │       │   └── semantic_scholar_client.py      # Semantic Scholar Bulk API 어댑터
 │       └── __init__.py
 ├── tests/
@@ -32,7 +33,8 @@ AiEvoGraph/
 │   ├── test_citation_graph_service.py          # CitationGraphService 단위 테스트
 │   ├── test_domain_models.py
 │   ├── test_neo4j_graph_repository.py          # Neo4jGraphRepository 단위 테스트
-│   ├── test_semantic_scholar_client.py         # API 클라이언트 단위 테스트
+│   ├── test_arxiv_client.py                    # arXiv 클라이언트 단위 테스트
+│   ├── test_semantic_scholar_client.py         # S2 클라이언트 단위 테스트
 │   ├── test_paper_filter.py                    # 필터링 로직 단위 테스트
 │   └── test_settings.py
 ├── docs/

@@ -6,6 +6,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Semantic Scholar venue names for target conferences.
 # Used as the `venue` parameter in the bulk search API.
+# arXiv categories to collect for AI research coverage.
+TARGET_ARXIV_CATEGORIES: list[str] = [
+    "cs.AI",  # Artificial Intelligence
+    "cs.LG",  # Machine Learning
+    "cs.CL",  # Computation and Language
+    "cs.CV",  # Computer Vision and Pattern Recognition
+    "cs.NE",  # Neural and Evolutionary Computing
+    "cs.RO",  # Robotics
+    "cs.IR",  # Information Retrieval
+    "cs.MA",  # Multiagent Systems
+]
+
 TARGET_VENUES: list[str] = [
     # ML general
     "NeurIPS",
@@ -61,6 +73,7 @@ class AppSettings(BaseSettings):
     )
     citation_top_percent: float = Field(0.20, alias="CITATION_TOP_PERCENT")
     cache_dir: str = Field(".cache/semantic_scholar", alias="CACHE_DIR")
+    arxiv_max_papers_per_category: int = Field(5000, alias="ARXIV_MAX_PAPERS_PER_CATEGORY")
 
 
 @lru_cache(maxsize=1)
