@@ -103,6 +103,18 @@ class ExtractionResult(BaseModel):
     relations: list[MethodRelation] = Field(default_factory=list)
 
 
+# NormalizationMap
+#  └ mapping  (variant name → canonical name)
+class NormalizationMap(BaseModel):
+    """Lookup table mapping variant method names to their canonical forms."""
+
+    mapping: dict[str, str] = Field(default_factory=dict)
+
+    def normalize(self, name: str) -> str:
+        """Return canonical name, or the original if no mapping exists."""
+        return self.mapping.get(name, name)
+
+
 # Citation
 #  ├ citing_paper_id
 #  ├ cited_paper_id

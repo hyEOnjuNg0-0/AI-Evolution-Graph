@@ -15,7 +15,7 @@
 | 0 | 프로젝트 기반 설정 | 🟢 완료 | 100% |
 | 1 | Layer A-1 — Temporal Citation Graph | 🟢 완료 | 100% |
 | 1.x | arXiv 논문 수집 지원 추가 | 🟢 완료 | 100% |
-| 2 | Layer A-2 — Method Evolution Graph | 🟡 진행 중 | 33% |
+| 2 | Layer A-2 — Method Evolution Graph | 🟡 진행 중 | 66% |
 | 3 | Layer B — Retrieval | 🔴 미착수 | 0% |
 | 4 | Layer C — Ranking | 🔴 미착수 | 0% |
 | 5 | Layer D — Analytical | 🔴 미착수 | 0% |

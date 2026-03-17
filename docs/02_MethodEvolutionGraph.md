@@ -32,14 +32,14 @@ GraphRAG(Microsoft)의 프롬프트 설계 패턴을 차용하되, 패키지 자
 **입력**: 논문 Abstract  
 **출력**: (Method 엔티티 리스트, Method 간 관계 리스트)
 
-- [ ] 추출 프롬프트 설계 (GraphRAG 스타일)
+- [x] 추출 프롬프트 설계 (GraphRAG 스타일)
   - 엔티티: 이름, 타입(Method/Model/Technique/Framework), 설명
   - 관계: 소스 Method, 타겟 Method, 유형(IMPROVES/EXTENDS/REPLACES), 근거 텍스트
   - few-shot 예시 구성 (AI 논문 도메인)
-- [ ] Structured output 스키마 정의 (Pydantic 모델)
-- [ ] Gleaning 구현 (1차 추출 후 누락 여부 재확인)
-- [ ] 배치 처리 (다수 Abstract 일괄 추출)
-- [ ] 단위 테스트: 추출 정확도, 출력 스키마 검증
+- [x] Structured output 스키마 정의 (Pydantic 모델)
+- [x] Gleaning 구현 (1차 추출 후 누락 여부 재확인)
+- [x] 배치 처리 (다수 Abstract 일괄 추출)
+- [x] 단위 테스트: 추출 정확도, 출력 스키마 검증
 
 ---
 
@@ -48,10 +48,10 @@ GraphRAG(Microsoft)의 프롬프트 설계 패턴을 차용하되, 패키지 자
 **입력**: 추출된 Method 엔티티 리스트  
 **출력**: 정규화된 Method 엔티티 리스트
 
-- [ ] 유사 엔티티 통합 (예: "BERT", "bert-base", "BERT-large" → "BERT")
+- [x] 유사 엔티티 통합 (예: "BERT", "bert-base", "BERT-large" → "BERT")
   - 문자열 유사도 + LLM 기반 판단 병행
-- [ ] 정규화 매핑 테이블 관리
-- [ ] 단위 테스트: normalization 로직
+- [x] 정규화 매핑 테이블 관리
+- [x 단위 테스트: normalization 로직
 
 > **참고**: GraphRAG의 커뮤니티 탐지와는 다른 단계이다.
 > - Normalization = 동일 엔티티 병합 (노드 수 감소)
