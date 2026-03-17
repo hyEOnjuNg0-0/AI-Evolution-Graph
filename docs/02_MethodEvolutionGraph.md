@@ -66,11 +66,11 @@ GraphRAG(Microsoft)의 프롬프트 설계 패턴을 차용하되, 패키지 자
 **입력**: 정규화된 Method 엔티티 + 관계  
 **출력**: Method Evolution Graph (Neo4j)
 
-- [ ] Method 노드 생성 (속성: name, type, description)
-- [ ] Method 간 관계 edge 생성 (속성: relation_type, evidence)
-- [ ] Paper-Method 연결: `(:Paper)-[:USES]->(:Method)`
-- [ ] Neo4j 스키마: `(:Method)-[:IMPROVES|EXTENDS|REPLACES]->(:Method)`
-- [ ] 통합 테스트: Abstract → Method Graph 파이프라인
+- [x] Method 노드 생성 (속성: name, type, description)
+- [x] Method 간 관계 edge 생성 (속성: relation_type, evidence)
+- [x] Paper-Method 연결: `(:Paper)-[:USES]->(:Method)`
+- [x] Neo4j 스키마: `(:Method)-[:IMPROVES|EXTENDS|REPLACES]->(:Method)`
+- [x] 통합 테스트: Abstract → Method Graph 파이프라인
 
 ---
 

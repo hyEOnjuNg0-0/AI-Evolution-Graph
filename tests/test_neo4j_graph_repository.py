@@ -5,11 +5,13 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from aievograph.domain.models import Author, Citation, Method, Paper
+from aievograph.domain.models import Author, Citation, Method, MethodRelation, Paper
 from aievograph.infrastructure.neo4j_graph_repository import (
     Neo4jGraphRepository,
     _CREATE_CITATION,
     _CREATE_INDEXES,
+    _CREATE_METHOD_RELATION_TEMPLATE,
+    _CREATE_PAPER_USES_METHOD,
     _GET_PAPERS_BY_YEAR_RANGE,
     _UPSERT_METHOD,
     _UPSERT_PAPER,
@@ -236,6 +238,90 @@ class TestGetPapersByYearRange:
         assert papers[0].publication_year == 2021
         assert len(papers[0].authors) == 1
         assert papers[0].authors[0].name == "Alice"
+
+
+# ---------------------------------------------------------------------------
+# _record_to_paper (helper)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# create_method_relation
+# ---------------------------------------------------------------------------
+
+class TestCreateMethodRelation:
+    def _make_relation(self, rtype: str = "IMPROVES") -> MethodRelation:
+        return MethodRelation(
+            source_method="BERT",
+            target_method="RoBERTa",
+            relation_type=rtype,  # type: ignore[arg-type]
+            evidence="RoBERTa improves BERT pre-training.",
+        )
+
+    def test_runs_query_with_correct_relation_type(self) -> None:
+        driver, session = _make_driver()
+        repo = Neo4jGraphRepository(driver)
+        relation = self._make_relation("IMPROVES")
+
+        repo.create_method_relation(relation)
+
+        cypher = session.run.call_args[0][0]
+        assert "IMPROVES" in cypher
+
+    def test_query_is_derived_from_template(self) -> None:
+        driver, session = _make_driver()
+        repo = Neo4jGraphRepository(driver)
+        relation = self._make_relation("EXTENDS")
+
+        repo.create_method_relation(relation)
+
+        expected = _CREATE_METHOD_RELATION_TEMPLATE.format(relation_type="EXTENDS")
+        cypher = session.run.call_args[0][0]
+        assert cypher == expected
+
+    def test_passes_correct_params(self) -> None:
+        driver, session = _make_driver()
+        repo = Neo4jGraphRepository(driver)
+        relation = self._make_relation("REPLACES")
+
+        repo.create_method_relation(relation)
+
+        kwargs = session.run.call_args[1]
+        assert kwargs["source_method"] == "BERT"
+        assert kwargs["target_method"] == "RoBERTa"
+        assert kwargs["evidence"] == "RoBERTa improves BERT pre-training."
+
+    def test_all_relation_types_are_accepted(self) -> None:
+        for rtype in ("IMPROVES", "EXTENDS", "REPLACES"):
+            driver, session = _make_driver()
+            repo = Neo4jGraphRepository(driver)
+            repo.create_method_relation(self._make_relation(rtype))
+            cypher = session.run.call_args[0][0]
+            assert rtype in cypher
+
+
+# ---------------------------------------------------------------------------
+# create_paper_uses_method
+# ---------------------------------------------------------------------------
+
+class TestCreatePaperUsesMethod:
+    def test_runs_uses_query(self) -> None:
+        driver, session = _make_driver()
+        repo = Neo4jGraphRepository(driver)
+
+        repo.create_paper_uses_method("P1", "BERT")
+
+        cypher = session.run.call_args[0][0]
+        assert cypher == _CREATE_PAPER_USES_METHOD
+
+    def test_passes_correct_params(self) -> None:
+        driver, session = _make_driver()
+        repo = Neo4jGraphRepository(driver)
+
+        repo.create_paper_uses_method("P42", "Transformer")
+
+        kwargs = session.run.call_args[1]
+        assert kwargs["paper_id"] == "P42"
+        assert kwargs["method_name"] == "Transformer"
 
 
 # ---------------------------------------------------------------------------

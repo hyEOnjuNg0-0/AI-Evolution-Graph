@@ -3,9 +3,11 @@ Neo4j driver
         ↓
 Neo4jGraphRepository  (implements GraphRepositoryPort)
         ↓
-  upsert_paper   → (:Paper)-[:WRITTEN_BY]->(:Author)
-  upsert_method  → (:Method)
-  create_citation→ (:Paper)-[:CITES]->(:Paper)
+  upsert_paper            → (:Paper)-[:WRITTEN_BY]->(:Author)
+  upsert_method           → (:Method)
+  create_citation         → (:Paper)-[:CITES]->(:Paper)
+  create_method_relation  → (:Method)-[:IMPROVES|EXTENDS|REPLACES]->(:Method)
+  create_paper_uses_method→ (:Paper)-[:USES]->(:Method)
   get_papers_by_year_range → list[Paper]
 """
 
@@ -14,7 +16,7 @@ from typing import Any
 
 from neo4j import Driver
 
-from aievograph.domain.models import Author, Citation, Method, Paper
+from aievograph.domain.models import Author, Citation, Method, MethodRelation, Paper
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
 
 logger = logging.getLogger(__name__)
@@ -65,6 +67,20 @@ WHERE p.publication_year >= $start_year AND p.publication_year <= $end_year
 OPTIONAL MATCH (p)-[:WRITTEN_BY]->(a:Author)
 RETURN p, collect(a) AS authors
 ORDER BY p.publication_year
+"""
+
+# Dynamic relation type — safe because MethodRelation.relation_type is a validated Literal
+_CREATE_METHOD_RELATION_TEMPLATE = """\
+MATCH (src:Method {{name: $source_method}})
+MATCH (tgt:Method {{name: $target_method}})
+MERGE (src)-[r:{relation_type}]->(tgt)
+SET r.evidence = $evidence
+"""
+
+_CREATE_PAPER_USES_METHOD = """
+MATCH (p:Paper {paper_id: $paper_id})
+MATCH (m:Method {name: $method_name})
+MERGE (p)-[:USES]->(m)
 """
 
 
@@ -156,3 +172,28 @@ class Neo4jGraphRepository(GraphRepositoryPort):
                 end_year=end_year,
             )
             return [_record_to_paper(record) for record in result]
+
+    def create_method_relation(self, relation: MethodRelation) -> None:
+        cypher = _CREATE_METHOD_RELATION_TEMPLATE.format(relation_type=relation.relation_type)
+        with self._driver.session() as session:
+            session.run(
+                cypher,
+                source_method=relation.source_method,
+                target_method=relation.target_method,
+                evidence=relation.evidence,
+            )
+        logger.debug(
+            "Created method relation: %s -[%s]-> %s",
+            relation.source_method,
+            relation.relation_type,
+            relation.target_method,
+        )
+
+    def create_paper_uses_method(self, paper_id: str, method_name: str) -> None:
+        with self._driver.session() as session:
+            session.run(
+                _CREATE_PAPER_USES_METHOD,
+                paper_id=paper_id,
+                method_name=method_name,
+            )
+        logger.debug("Created USES edge: %s -> %s", paper_id, method_name)

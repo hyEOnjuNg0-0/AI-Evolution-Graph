@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from aievograph.domain.models import Citation, Method, Paper
+from aievograph.domain.models import Citation, Method, MethodRelation, Paper
 
 
 class GraphRepositoryPort(ABC):
@@ -26,4 +26,14 @@ class GraphRepositoryPort(ABC):
     @abstractmethod
     def get_papers_by_year_range(self, start_year: int, end_year: int) -> list[Paper]:
         """Return all Paper nodes whose publication_year falls within [start_year, end_year]."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_method_relation(self, relation: MethodRelation) -> None:
+        """Create a typed edge between two Method nodes (IMPROVES / EXTENDS / REPLACES)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_paper_uses_method(self, paper_id: str, method_name: str) -> None:
+        """Create a USES edge from a Paper node to a Method node."""
         raise NotImplementedError

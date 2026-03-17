@@ -18,10 +18,11 @@ AiEvoGraph/
 │       │   │   └── entity_normalizer.py        # EntityNormalizerPort (엔티티 정규화 포트)
 │       │   ├── services/
 │       │   │   ├── __init__.py
-│       │   │   ├── citation_graph_service.py   # CitationGraphService (그래프 구축 서비스)
+│       │   │   ├── citation_graph_service.py   # CitationGraphService (Citation Graph 구축 서비스)
 │       │   │   ├── paper_filter.py             # 논문 수집 전처리 필터 (연도별 top-N% 인용 수 기준으로 노이즈 제거)
 │       │   │   ├── method_extraction_service.py # MethodExtractionService (추출 조율 서비스)
-│       │   │   └── entity_normalization_service.py # EntityNormalizationService (전역 정규화 서비스)
+│       │   │   ├── entity_normalization_service.py # EntityNormalizationService (전역 정규화 서비스)
+│       │   │   └── method_graph_service.py     # MethodGraphService (추출→정규화→저장 오케스트레이션)
 │       │   ├── __init__.py
 │       │   └── models.py                       # 도메인 모델 (Author, Paper, Citation, Method, MethodRelation, ExtractionResult)
 │       ├── infrastructure/
@@ -46,7 +47,8 @@ AiEvoGraph/
 │   ├── test_method_extraction_service.py       # MethodExtractionService 단위 테스트
 │   ├── test_llm_method_extractor.py            # LLMMethodExtractor 단위 테스트 (OpenAI client mock)
 │   ├── test_entity_normalization_service.py    # EntityNormalizationService 단위 테스트
-│   └── test_llm_entity_normalizer.py           # LLMEntityNormalizer + _find_candidate_clusters 단위 테스트
+│   ├── test_llm_entity_normalizer.py           # LLMEntityNormalizer + _find_candidate_clusters 단위 테스트
+│   └── test_method_graph_service.py            # MethodGraphService 단위 테스트
 ├── docs/
 │   ├── 00_setup.md
 │   ├── 01_TemporalCitationGraph.md
