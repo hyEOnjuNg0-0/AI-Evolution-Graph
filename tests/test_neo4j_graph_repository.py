@@ -216,6 +216,26 @@ class TestGetPapersByYearRange:
         assert kwargs["start_year"] == 2018
         assert kwargs["end_year"] == 2022
 
+    def test_passes_empty_venues_when_none(self) -> None:
+        driver, session = _make_driver()
+        session.run.return_value = []
+        repo = Neo4jGraphRepository(driver)
+
+        repo.get_papers_by_year_range(2018, 2022)
+
+        kwargs = session.run.call_args[1]
+        assert kwargs["venues"] == []
+
+    def test_passes_venues_when_provided(self) -> None:
+        driver, session = _make_driver()
+        session.run.return_value = []
+        repo = Neo4jGraphRepository(driver)
+
+        repo.get_papers_by_year_range(2018, 2022, venues=["NeurIPS", "ICML"])
+
+        kwargs = session.run.call_args[1]
+        assert kwargs["venues"] == ["NeurIPS", "ICML"]
+
     def test_returns_empty_list_when_no_results(self) -> None:
         driver, session = _make_driver()
         session.run.return_value = []

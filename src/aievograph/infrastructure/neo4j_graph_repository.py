@@ -64,6 +64,7 @@ MERGE (citing)-[:CITES {created_year: $created_year}]->(cited)
 _GET_PAPERS_BY_YEAR_RANGE = """
 MATCH (p:Paper)
 WHERE p.publication_year >= $start_year AND p.publication_year <= $end_year
+AND (size($venues) = 0 OR p.venue IN $venues)
 OPTIONAL MATCH (p)-[:WRITTEN_BY]->(a:Author)
 RETURN p, collect(a) AS authors
 ORDER BY p.publication_year
@@ -164,12 +165,15 @@ class Neo4jGraphRepository(GraphRepositoryPort):
             citation.cited_paper_id,
         )
 
-    def get_papers_by_year_range(self, start_year: int, end_year: int) -> list[Paper]:
+    def get_papers_by_year_range(
+        self, start_year: int, end_year: int, venues: list[str] | None = None
+    ) -> list[Paper]:
         with self._driver.session() as session:
             result = session.run(
                 _GET_PAPERS_BY_YEAR_RANGE,
                 start_year=start_year,
                 end_year=end_year,
+                venues=venues or [],
             )
             return [_record_to_paper(record) for record in result]
 

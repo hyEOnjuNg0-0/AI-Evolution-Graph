@@ -24,8 +24,10 @@ class GraphRepositoryPort(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_papers_by_year_range(self, start_year: int, end_year: int) -> list[Paper]:
-        """Return all Paper nodes whose publication_year falls within [start_year, end_year]."""
+    def get_papers_by_year_range(
+        self, start_year: int, end_year: int, venues: list[str] | None = None
+    ) -> list[Paper]:
+        """Return Paper nodes within [start_year, end_year], optionally filtered by venue."""
         raise NotImplementedError
 
     @abstractmethod

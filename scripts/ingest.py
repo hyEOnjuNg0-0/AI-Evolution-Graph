@@ -132,7 +132,7 @@ async def main() -> None:
                 "Method-graph-only mode — loading papers from Neo4j (years=%d-%d).",
                 year_start, year_end,
             )
-            papers = repo.get_papers_by_year_range(year_start, year_end)
+            papers = repo.get_papers_by_year_range(year_start, year_end, venues=args.venues)
             logger.info("Loaded %d papers from Neo4j.", len(papers))
             if not papers:
                 logger.warning(
