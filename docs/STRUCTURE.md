@@ -13,19 +13,22 @@ AiEvoGraph/
 │       │   ├── ports/
 │       │   │   ├── __init__.py
 │       │   │   ├── graph_repository.py         # GraphRepositoryPort (Neo4j 추상 인터페이스)
-│       │   │   └── paper_collector.py          # PaperCollectorPort (논문 수집 포트)
+│       │   │   ├── paper_collector.py          # PaperCollectorPort (논문 수집 포트)
+│       │   │   └── method_extractor.py         # MethodExtractorPort (LLM 추출 포트)
 │       │   ├── services/
 │       │   │   ├── __init__.py
 │       │   │   ├── citation_graph_service.py   # CitationGraphService (그래프 구축 서비스)
-│       │   │   └── paper_filter.py             # 연도별 top-N% 인용 필터링
+│       │   │   ├── paper_filter.py             # 논문 수집 전처리 필터 (연도별 top-N% 인용 수 기준으로 노이즈 제거)
+│       │   │   └── method_extraction_service.py # MethodExtractionService (추출 조율 서비스)
 │       │   ├── __init__.py
-│       │   └── models.py                       # 논문 데이터 모델 정의 (Author, Paper, Citation, Method)
+│       │   └── models.py                       # 도메인 모델 (Author, Paper, Citation, Method, MethodRelation, ExtractionResult)
 │       ├── infrastructure/
 │       │   ├── __init__.py
 │       │   ├── logging.py
 │       │   ├── neo4j_graph_repository.py       # Neo4jGraphRepository (GraphRepositoryPort 구현체)
 │       │   ├── arxiv_client.py                 # arXiv API 어댑터 (카테고리별 수집 + S2 enrichment)
-│       │   └── semantic_scholar_client.py      # Semantic Scholar Bulk API 어댑터
+│       │   ├── semantic_scholar_client.py      # Semantic Scholar Bulk API 어댑터
+│       │   └── llm_method_extractor.py         # LLMMethodExtractor (structured output + gleaning, OpenAI 구현체)
 │       └── __init__.py
 ├── tests/
 │   ├── integration/
@@ -36,7 +39,9 @@ AiEvoGraph/
 │   ├── test_arxiv_client.py                    # arXiv 클라이언트 단위 테스트
 │   ├── test_semantic_scholar_client.py         # S2 클라이언트 단위 테스트
 │   ├── test_paper_filter.py                    # 필터링 로직 단위 테스트
-│   └── test_settings.py
+│   ├── test_settings.py
+│   ├── test_method_extraction_service.py       # MethodExtractionService 단위 테스트
+│   └── test_llm_method_extractor.py            # LLMMethodExtractor 단위 테스트 (OpenAI client mock)
 ├── docs/
 │   ├── 00_setup.md
 │   ├── 01_TemporalCitationGraph.md

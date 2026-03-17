@@ -3,6 +3,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
 
+
+
 # Author
 #  ├ author_id
 #  └ name
@@ -69,6 +71,37 @@ class Paper(BaseModel):
         if not value.strip():
             raise ValueError("Required string fields must not be empty.")
         return value
+
+# MethodRelation
+#  ├ source_method (name)
+#  ├ target_method (name)
+#  ├ relation_type
+#  └ evidence
+class MethodRelation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source_method: str
+    target_method: str
+    relation_type: Literal["IMPROVES", "EXTENDS", "REPLACES"]
+    evidence: str
+
+    @field_validator("source_method", "target_method", "evidence")
+    @classmethod
+    def must_not_be_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Value must not be empty.")
+        return value
+
+
+# ExtractionResult
+#  ├ methods
+#  └ relations
+class ExtractionResult(BaseModel):
+    """Structured output from LLM-based method extraction (single paper)."""
+
+    methods: list[Method] = Field(default_factory=list)
+    relations: list[MethodRelation] = Field(default_factory=list)
+
 
 # Citation
 #  ├ citing_paper_id
