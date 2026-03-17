@@ -54,6 +54,12 @@ def parse_args() -> argparse.Namespace:
         help="Also collect arXiv preprints via arXiv API + Semantic Scholar enrichment",
     )
     parser.add_argument(
+        "--arxiv-only",
+        action="store_true",
+        default=False,
+        help="Collect arXiv preprints only, skip Semantic Scholar venue collection",
+    )
+    parser.add_argument(
         "--arxiv-categories",
         nargs="+",
         default=None,
@@ -74,13 +80,16 @@ async def main() -> None:
         "Ingestion start — venues=%d, years=%d-%d", len(venues), year_start, year_end
     )
 
-    # 1. Collect papers from Semantic Scholar
-    collector = SemanticScholarClient(settings)
-    papers = await collector.collect(venues, year_start, year_end)
-    logger.info("Collected %d conference papers.", len(papers))
+    # 1. Collect papers from Semantic Scholar (skip if --arxiv-only)
+    if args.arxiv_only:
+        papers = []
+    else:
+        collector = SemanticScholarClient(settings)
+        papers = await collector.collect(venues, year_start, year_end)
+        logger.info("Collected %d conference papers.", len(papers))
 
-    # 1b. Optionally collect arXiv preprints via arXiv API + S2 enrichment
-    if args.arxiv:
+    # 1b. Collect arXiv preprints when --arxiv or --arxiv-only is set
+    if args.arxiv or args.arxiv_only:
         categories = args.arxiv_categories or TARGET_ARXIV_CATEGORIES
         logger.info("Collecting arXiv papers — categories=%s", categories)
         arxiv_collector = ArxivClient(settings)
