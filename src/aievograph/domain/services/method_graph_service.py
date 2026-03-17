@@ -43,7 +43,7 @@ class MethodGraphService:
         # Step 1: extract method entities + relations from abstracts (LLM)
         raw_results = self._extraction.extract_from_papers(papers)
         logger.info("Extracted method data from %d papers with abstracts.", len(raw_results))
-ㅌ
+
         # Step 2: normalize entity names globally across all papers
         normalized_results, norm_map = self._normalization.normalize(raw_results)
         logger.info("Normalization map has %d entries.", len(norm_map.mapping))
