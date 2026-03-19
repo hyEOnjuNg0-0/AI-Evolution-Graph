@@ -8,7 +8,6 @@ Bulk search (metadata) → per-page filter → references endpoint
 Return top-cited Paper objects with referenced_work_ids populated
 """
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -21,6 +20,7 @@ from aievograph.config.settings import AppSettings
 from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
 from aievograph.domain.services.paper_filter import filter_top_cited
+from aievograph.infrastructure.http_utils import request_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,6 @@ _BATCH_ENDPOINT = "/paper/batch"
 # fetched via POST /paper/batch after per-page filtering.
 _BULK_FIELDS = "title,year,venue,citationCount,referenceCount,authors"
 _BATCH_FIELDS = "abstract,references"
-
-_MAX_RETRIES = 5
-_RETRY_BASE_DELAY = 5.0  # seconds; doubles on each attempt
 
 
 def _parse_paper(raw: dict[str, Any]) -> Paper | None:
@@ -96,50 +93,6 @@ class SemanticScholarClient(PaperCollectorPort):
         path = self._cache_dir / f"{key}.json"
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
-    async def _get_with_retry(
-        self,
-        client: httpx.AsyncClient,
-        url: str,
-        **kwargs: Any,
-    ) -> httpx.Response:
-        """GET with exponential backoff on 429 / 5xx."""
-        for attempt in range(_MAX_RETRIES):
-            resp = await client.get(url, **kwargs)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                retry_after = resp.headers.get("Retry-After")
-                delay = float(retry_after) if retry_after else _RETRY_BASE_DELAY * (2 ** attempt)
-                logger.warning(
-                    "HTTP %d — waiting %.1fs before retry (attempt %d/%d)",
-                    resp.status_code, delay, attempt + 1, _MAX_RETRIES,
-                )
-                await asyncio.sleep(delay)
-                continue
-            resp.raise_for_status()
-            return resp
-        raise RuntimeError(f"Max retries ({_MAX_RETRIES}) exceeded for GET {url}")
-
-    async def _post_with_retry(
-        self,
-        client: httpx.AsyncClient,
-        url: str,
-        **kwargs: Any,
-    ) -> httpx.Response:
-        """POST with exponential backoff on 429 / 5xx."""
-        for attempt in range(_MAX_RETRIES):
-            resp = await client.post(url, **kwargs)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                retry_after = resp.headers.get("Retry-After")
-                delay = float(retry_after) if retry_after else _RETRY_BASE_DELAY * (2 ** attempt)
-                logger.warning(
-                    "HTTP %d — waiting %.1fs before retry (attempt %d/%d)",
-                    resp.status_code, delay, attempt + 1, _MAX_RETRIES,
-                )
-                await asyncio.sleep(delay)
-                continue
-            resp.raise_for_status()
-            return resp
-        raise RuntimeError(f"Max retries ({_MAX_RETRIES}) exceeded for POST {url}")
-
     def _checkpoint_path(self, venues: list[str], year_range: str) -> Path:
         key = hashlib.sha256(
             f"{','.join(sorted(venues))}:{year_range}".encode()
@@ -175,8 +128,9 @@ class SemanticScholarClient(PaperCollectorPort):
         if token:
             params["token"] = token
 
-        resp = await self._get_with_retry(
+        resp = await request_with_retry(
             client,
+            "GET",
             f"{self._base_url}{_BULK_SEARCH_ENDPOINT}",
             params=params,
             headers=self._headers(),
@@ -209,8 +163,9 @@ class SemanticScholarClient(PaperCollectorPort):
         chunk_size = 500
         for i in range(0, len(uncached), chunk_size):
             chunk = uncached[i : i + chunk_size]
-            resp = await self._post_with_retry(
+            resp = await request_with_retry(
                 client,
+                "POST",
                 f"{self._base_url}{_BATCH_ENDPOINT}",
                 params={"fields": _BATCH_FIELDS},
                 json={"ids": chunk},

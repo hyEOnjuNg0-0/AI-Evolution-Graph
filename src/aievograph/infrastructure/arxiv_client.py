@@ -28,6 +28,7 @@ from aievograph.config.settings import AppSettings
 from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
 from aievograph.domain.services.paper_filter import filter_top_cited
+from aievograph.infrastructure.http_utils import request_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +43,6 @@ _S2_DETAIL_FIELDS = "abstract,references"
 _ARXIV_PAGE_SIZE = 500    # arXiv API recommended max per request
 _S2_CHUNK_SIZE = 500      # S2 batch limit
 _ARXIV_REQUEST_DELAY = 3.0  # seconds between arXiv requests (per API guidelines)
-
-_MAX_RETRIES = 5
-_RETRY_BASE_DELAY = 5.0  # seconds; doubles on each attempt
 
 
 def _extract_arxiv_id(entry_id: str) -> str | None:
@@ -155,28 +153,6 @@ class ArxivClient(PaperCollectorPort):
     def _save_checkpoint(self, path: Path, data: dict[str, Any]) -> None:
         path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
-    async def _s2_post_with_retry(
-        self,
-        client: httpx.AsyncClient,
-        url: str,
-        **kwargs: Any,
-    ) -> httpx.Response:
-        """POST to S2 with exponential backoff on 429 / 5xx."""
-        for attempt in range(_MAX_RETRIES):
-            resp = await client.post(url, **kwargs)
-            if resp.status_code == 429 or resp.status_code >= 500:
-                retry_after = resp.headers.get("Retry-After")
-                delay = float(retry_after) if retry_after else _RETRY_BASE_DELAY * (2 ** attempt)
-                logger.warning(
-                    "HTTP %d — waiting %.1fs before retry (attempt %d/%d)",
-                    resp.status_code, delay, attempt + 1, _MAX_RETRIES,
-                )
-                await asyncio.sleep(delay)
-                continue
-            resp.raise_for_status()
-            return resp
-        raise RuntimeError(f"Max retries ({_MAX_RETRIES}) exceeded for POST {url}")
-
     async def _fetch_arxiv_page(
         self,
         client: httpx.AsyncClient,
@@ -233,8 +209,9 @@ class ArxivClient(PaperCollectorPort):
             chunk = uncached[i : i + _S2_CHUNK_SIZE]
             s2_ids = [f"ArXiv:{aid}" for aid in chunk]
 
-            resp = await self._s2_post_with_retry(
+            resp = await request_with_retry(
                 client,
+                "POST",
                 f"{self._s2_base_url}{_S2_BATCH_ENDPOINT}",
                 params={"fields": _S2_CITATION_FIELDS},
                 json={"ids": s2_ids},
@@ -286,8 +263,9 @@ class ArxivClient(PaperCollectorPort):
 
         for i in range(0, len(uncached), _S2_CHUNK_SIZE):
             chunk = uncached[i : i + _S2_CHUNK_SIZE]
-            resp = await self._s2_post_with_retry(
+            resp = await request_with_retry(
                 client,
+                "POST",
                 f"{self._s2_base_url}{_S2_BATCH_ENDPOINT}",
                 params={"fields": _S2_DETAIL_FIELDS},
                 json={"ids": chunk},
