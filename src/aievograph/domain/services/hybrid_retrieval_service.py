@@ -21,6 +21,7 @@ from typing import Literal
 
 from aievograph.domain.models import ScoredPaper, Subgraph
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
+from aievograph.domain.services.graph_retrieval_service import _MAX_HOPS
 from aievograph.domain.services.vector_retrieval_service import VectorRetrievalService
 
 logger = logging.getLogger(__name__)
@@ -33,9 +34,6 @@ _QUERY_WEIGHTS: dict[str, tuple[float, float]] = {
     "structural": (0.1, 0.9),
     "balanced":   (0.5, 0.5),
 }
-
-# Upper bound matches GraphRetrievalService._MAX_HOPS to prevent exponential fan-out.
-_MAX_HOPS = 5
 
 
 def _graph_proximity(hop_dist: int) -> float:
