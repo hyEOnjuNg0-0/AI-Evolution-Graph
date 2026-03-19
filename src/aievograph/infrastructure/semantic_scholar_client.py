@@ -9,7 +9,6 @@ Return top-cited Paper objects with referenced_work_ids populated
 """
 
 import hashlib
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -20,6 +19,13 @@ from aievograph.config.settings import AppSettings
 from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
 from aievograph.domain.services.paper_filter import filter_top_cited
+from aievograph.infrastructure.file_cache import (
+    checkpoint_path,
+    load_checkpoint,
+    read_json,
+    save_checkpoint,
+    write_json,
+)
 from aievograph.infrastructure.http_utils import request_with_retry
 
 logger = logging.getLogger(__name__)
@@ -83,30 +89,6 @@ class SemanticScholarClient(PaperCollectorPort):
             headers["x-api-key"] = self._api_key
         return headers
 
-    def _read_cache(self, key: str) -> Any | None:
-        path = self._cache_dir / f"{key}.json"
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-        return None
-
-    def _write_cache(self, key: str, data: Any) -> None:
-        path = self._cache_dir / f"{key}.json"
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-
-    def _checkpoint_path(self, venues: list[str], year_range: str) -> Path:
-        key = hashlib.sha256(
-            f"{','.join(sorted(venues))}:{year_range}".encode()
-        ).hexdigest()[:16]
-        return self._cache_dir / f"checkpoint_{key}.json"
-
-    def _load_checkpoint(self, path: Path) -> dict[str, list[dict[str, Any]]]:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-        return {}
-
-    def _save_checkpoint(self, path: Path, data: dict[str, Any]) -> None:
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-
     async def _fetch_page(
         self,
         client: httpx.AsyncClient,
@@ -115,7 +97,7 @@ class SemanticScholarClient(PaperCollectorPort):
         token: str,
     ) -> dict[str, Any]:
         cache_key = _build_cache_key(venue, year_range, token)
-        cached = self._read_cache(cache_key)
+        cached = read_json(self._cache_dir, cache_key)
         if cached is not None:
             logger.debug("Cache hit: venue=%s token=%s", venue, token[:12])
             return cached
@@ -136,7 +118,7 @@ class SemanticScholarClient(PaperCollectorPort):
             headers=self._headers(),
         )
         data = resp.json()
-        self._write_cache(cache_key, data)
+        write_json(self._cache_dir, cache_key, data)
         return data
 
     async def _fetch_batch(
@@ -154,7 +136,7 @@ class SemanticScholarClient(PaperCollectorPort):
         uncached: list[str] = []
 
         for pid in paper_ids:
-            cached = self._read_cache(f"batch_{pid}")
+            cached = read_json(self._cache_dir, f"batch_{pid}")
             if cached is not None:
                 results[pid] = cached
             else:
@@ -184,7 +166,7 @@ class SemanticScholarClient(PaperCollectorPort):
                     "abstract": item.get("abstract") or None,
                     "referenced_work_ids": ref_ids,
                 }
-                self._write_cache(f"batch_{pid}", {
+                write_json(self._cache_dir, f"batch_{pid}", {
                     "abstract": entry["abstract"],
                     "referenced_work_ids": list(ref_ids),
                 })
@@ -205,8 +187,8 @@ class SemanticScholarClient(PaperCollectorPort):
         all its pages are fetched and filtered.
         """
         year_range = f"{year_start}-{year_end}"
-        checkpoint_path = self._checkpoint_path(venues, year_range)
-        checkpoint = self._load_checkpoint(checkpoint_path)
+        ckpt_path = checkpoint_path(self._cache_dir, venues, year_range)
+        checkpoint = load_checkpoint(ckpt_path)
 
         papers: list[Paper] = []
 
@@ -268,7 +250,7 @@ class SemanticScholarClient(PaperCollectorPort):
 
                 # Save completed venue to checkpoint before moving to the next
                 checkpoint[venue] = [p.model_dump() for p in venue_papers]
-                self._save_checkpoint(checkpoint_path, checkpoint)
+                save_checkpoint(ckpt_path, checkpoint)
                 papers.extend(venue_papers)
                 logger.info(
                     "Finished venue=%s total_collected=%d", venue, len(papers)

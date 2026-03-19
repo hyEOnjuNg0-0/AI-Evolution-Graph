@@ -15,7 +15,6 @@ Return Paper objects with referenced_work_ids populated
 
 import asyncio
 import hashlib
-import json
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -28,6 +27,13 @@ from aievograph.config.settings import AppSettings
 from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
 from aievograph.domain.services.paper_filter import filter_top_cited
+from aievograph.infrastructure.file_cache import (
+    checkpoint_path,
+    load_checkpoint,
+    read_json,
+    save_checkpoint,
+    write_json,
+)
 from aievograph.infrastructure.http_utils import request_with_retry
 
 logger = logging.getLogger(__name__)
@@ -128,31 +134,6 @@ class ArxivClient(PaperCollectorPort):
     def _cache_key(self, *parts: str) -> str:
         return hashlib.sha256(":".join(parts).encode()).hexdigest()
 
-    def _read_cache(self, key: str) -> Any | None:
-        path = self._cache_dir / f"{key}.json"
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-        return None
-
-    def _write_cache(self, key: str, data: Any) -> None:
-        (self._cache_dir / f"{key}.json").write_text(
-            json.dumps(data, ensure_ascii=False), encoding="utf-8"
-        )
-
-    def _checkpoint_path(self, categories: list[str], year_range: str) -> Path:
-        key = hashlib.sha256(
-            f"{','.join(sorted(categories))}:{year_range}".encode()
-        ).hexdigest()[:16]
-        return self._cache_dir / f"checkpoint_{key}.json"
-
-    def _load_checkpoint(self, path: Path) -> dict[str, list[dict[str, Any]]]:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-        return {}
-
-    def _save_checkpoint(self, path: Path, data: dict[str, Any]) -> None:
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-
     async def _fetch_arxiv_page(
         self,
         client: httpx.AsyncClient,
@@ -163,7 +144,7 @@ class ArxivClient(PaperCollectorPort):
     ) -> list[dict[str, Any]]:
         """Fetch one paginated page of arXiv entries for a category and year range."""
         key = self._cache_key("page", category, f"{year_start}-{year_end}", str(start))
-        cached = self._read_cache(key)
+        cached = read_json(self._cache_dir, key)
         if cached is not None:
             logger.debug("Cache hit: arXiv category=%s start=%d", category, start)
             return cached
@@ -181,7 +162,7 @@ class ArxivClient(PaperCollectorPort):
         resp = await client.get(_ARXIV_API_URL, params=params)
         resp.raise_for_status()
         entries = parse_arxiv_feed(resp.text, year_start, year_end)
-        self._write_cache(key, entries)
+        write_json(self._cache_dir, key, entries)
         return entries
 
     async def _fetch_s2_citations(
@@ -199,7 +180,7 @@ class ArxivClient(PaperCollectorPort):
         uncached: list[str] = []
 
         for arxiv_id in arxiv_ids:
-            cached = self._read_cache(f"cite_{arxiv_id}")
+            cached = read_json(self._cache_dir, f"cite_{arxiv_id}")
             if cached is not None:
                 results[arxiv_id] = cached
             else:
@@ -237,7 +218,7 @@ class ArxivClient(PaperCollectorPort):
                     "reference_count": item.get("referenceCount") or 0,
                     "authors": item.get("authors") or [],
                 }
-                self._write_cache(f"cite_{arxiv_id}", entry)
+                write_json(self._cache_dir, f"cite_{arxiv_id}", entry)
                 results[arxiv_id] = entry
 
         return results
@@ -255,7 +236,7 @@ class ArxivClient(PaperCollectorPort):
         uncached: list[str] = []
 
         for pid in paper_ids:
-            cached = self._read_cache(f"detail_{pid}")
+            cached = read_json(self._cache_dir, f"detail_{pid}")
             if cached is not None:
                 results[pid] = cached
             else:
@@ -287,7 +268,7 @@ class ArxivClient(PaperCollectorPort):
                     "abstract": item.get("abstract") or None,
                     "referenced_work_ids": list(ref_ids),
                 }
-                self._write_cache(f"detail_{pid}", entry)
+                write_json(self._cache_dir, f"detail_{pid}", entry)
                 results[pid] = entry
 
         return results
@@ -306,8 +287,8 @@ class ArxivClient(PaperCollectorPort):
         minimising API calls.
         """
         year_range = f"{year_start}-{year_end}"
-        checkpoint_path = self._checkpoint_path(venues, year_range)
-        checkpoint = self._load_checkpoint(checkpoint_path)
+        ckpt_path = checkpoint_path(self._cache_dir, venues, year_range)
+        checkpoint = load_checkpoint(ckpt_path)
 
         # --- Step 1: collect arXiv entries across all categories ---
         entries_by_id: dict[str, dict[str, Any]] = {}
@@ -361,7 +342,7 @@ class ArxivClient(PaperCollectorPort):
 
                 # Save completed category to checkpoint
                 checkpoint[category] = category_entries
-                self._save_checkpoint(checkpoint_path, checkpoint)
+                save_checkpoint(ckpt_path, checkpoint)
 
             if not entries_by_id:
                 logger.warning("No arXiv entries found for categories=%s", venues)
