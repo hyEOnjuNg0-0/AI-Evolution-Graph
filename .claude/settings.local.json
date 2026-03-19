@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "Bash(python -m pytest tests/ -v --tb=short)"
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"vector\\\\|embedding\\\\|Vector\\\\|Embedding\" /c/AiEvoGraph/tests/*.py)",
+      "Bash(wc:*)",
+      "Bash(python:*)"
     ]
   }
 }

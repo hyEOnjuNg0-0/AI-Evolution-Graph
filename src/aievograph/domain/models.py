@@ -132,3 +132,15 @@ class Citation(BaseModel):
         if not value.strip():
             raise ValueError("Citation IDs must not be empty.")
         return value
+
+
+# ScoredPaper
+#  ├ paper
+#  └ score
+class ScoredPaper(BaseModel):
+    """A Paper paired with a similarity score from vector retrieval."""
+
+    paper: "Paper"
+    # ge=0.0 only: cosine similarity is non-negative, but floating-point arithmetic
+    # can push the value marginally above 1.0, so no upper bound is enforced.
+    score: float = Field(..., ge=0.0)
