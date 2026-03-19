@@ -8,7 +8,7 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-03-19 (Step 3.1 완료)
+> 마지막 업데이트: 2026-03-19 (Step 3.2 완료)
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
@@ -16,7 +16,7 @@
 | 1 | Layer A-1 — Temporal Citation Graph | 🟢 완료 | 100% |
 | 1.x | arXiv 논문 수집 지원 추가 | 🟢 완료 | 100% |
 | 2 | Layer A-2 — Method Evolution Graph | 🟢 완료 | 100% |
-| 3 | Layer B — Retrieval | 🟡 진행 중 | 33% (Step 3.1 완료) |
+| 3 | Layer B — Retrieval | 🟡 진행 중 | 66% (Step 3.2 완료) |
 | 4 | Layer C — Ranking | 🔴 미착수 | 0% |
 | 5 | Layer D — Analytical | 🔴 미착수 | 0% |
 | 6 | Layer E — Interface | 🔴 미착수 | 0% |

@@ -39,3 +39,19 @@ class GraphRepositoryPort(ABC):
     def create_paper_uses_method(self, paper_id: str, method_name: str) -> None:
         """Create a USES edge from a Paper node to a Method node."""
         raise NotImplementedError
+
+    @abstractmethod
+    def get_paper_by_id(self, paper_id: str) -> "Paper | None":
+        """Return the Paper node with the given ID, or None if not found."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_citation_neighborhood(self, paper_id: str, hops: int) -> list["Paper"]:
+        """Return Paper nodes reachable within `hops` citation hops from the seed.
+
+        Traversal is bidirectional (follows CITES in both directions).
+        The seed paper itself must NOT be included in the result.
+        hops must be a positive integer; callers are responsible for enforcing an upper bound.
+        Implementations may cap result size internally (e.g. LIMIT).
+        """
+        raise NotImplementedError

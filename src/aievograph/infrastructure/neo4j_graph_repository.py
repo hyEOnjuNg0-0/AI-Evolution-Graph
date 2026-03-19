@@ -84,10 +84,43 @@ MATCH (m:Method {name: $method_name})
 MERGE (p)-[:USES]->(m)
 """
 
+_GET_PAPER_BY_ID = """
+MATCH (p:Paper {paper_id: $paper_id})
+OPTIONAL MATCH (p)-[:WRITTEN_BY]->(a:Author)
+RETURN p, collect(a) AS authors
+"""
+
+# hops is a validated positive integer embedded as a literal — not a parameter.
+# Cypher does not support parameterized path lengths (e.g. *1..$hops).
+# $limit caps result set size to prevent unbounded memory use on large graphs.
+_GET_CITATION_NEIGHBORHOOD_TEMPLATE = """\
+MATCH (seed:Paper {{paper_id: $paper_id}})
+MATCH (seed)-[:CITES*1..{hops}]-(neighbor:Paper)
+WHERE neighbor.paper_id <> $paper_id
+WITH DISTINCT neighbor AS p
+OPTIONAL MATCH (p)-[:WRITTEN_BY]->(a:Author)
+RETURN p, collect(a) AS authors
+LIMIT $limit
+"""
+
+_MAX_RESULT_PAPERS = 1000
+
 
 def _record_to_paper(record: Any) -> Paper:
-    """Convert a Neo4j record from _GET_PAPERS_BY_YEAR_RANGE to a Paper domain object."""
+    """Convert a Neo4j record to a Paper domain object.
+
+    Uses .get() for all node fields so that missing properties raise a
+    descriptive ValueError instead of a bare KeyError.
+    """
     node = record["p"]
+    paper_id = node.get("paper_id")
+    title = node.get("title")
+    publication_year = node.get("publication_year")
+    if paper_id is None or title is None or publication_year is None:
+        raise ValueError(
+            f"Paper node missing required fields: "
+            f"paper_id={paper_id!r}, title={title!r}, publication_year={publication_year!r}"
+        )
     raw_authors: list[Any] = record["authors"] or []
     authors = [
         Author(author_id=a["author_id"], name=a["name"])
@@ -95,9 +128,9 @@ def _record_to_paper(record: Any) -> Paper:
         if a is not None and a.get("author_id") and a.get("name")
     ]
     return Paper(
-        paper_id=node["paper_id"],
-        title=node["title"],
-        publication_year=node["publication_year"],
+        paper_id=paper_id,
+        title=title,
+        publication_year=publication_year,
         venue=node.get("venue"),
         abstract=node.get("abstract"),
         citation_count=node.get("citation_count") or 0,
@@ -201,3 +234,18 @@ class Neo4jGraphRepository(GraphRepositoryPort):
                 method_name=method_name,
             )
         logger.debug("Created USES edge: %s -> %s", paper_id, method_name)
+
+    def get_paper_by_id(self, paper_id: str) -> Paper | None:
+        with self._driver.session() as session:
+            result = session.run(_GET_PAPER_BY_ID, paper_id=paper_id)
+            record = result.single()
+        if record is None:
+            return None
+        return _record_to_paper(record)
+
+    def get_citation_neighborhood(self, paper_id: str, hops: int) -> list[Paper]:
+        # int() cast guards against accidental string injection into the format template.
+        cypher = _GET_CITATION_NEIGHBORHOOD_TEMPLATE.format(hops=int(hops))
+        with self._driver.session() as session:
+            result = session.run(cypher, paper_id=paper_id, limit=_MAX_RESULT_PAPERS)
+            return [_record_to_paper(record) for record in result]

@@ -6,7 +6,8 @@
       "Bash(xargs grep:*)",
       "Bash(grep -r \"vector\\\\|embedding\\\\|Vector\\\\|Embedding\" /c/AiEvoGraph/tests/*.py)",
       "Bash(wc:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(grep -r \"expand_from_id\\\\|get_citation_neighborhood\" --include=*.py src/ tests/)"
     ]
   }
 }

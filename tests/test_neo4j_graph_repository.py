@@ -175,6 +175,9 @@ class TestGetPapersByYearRange:
             "publication_year": year,
         }.__getitem__)
         paper_node.get = MagicMock(side_effect=lambda k, d=None: {
+            "paper_id": paper_id,
+            "title": f"Paper {paper_id}",
+            "publication_year": year,
             "venue": "ICML",
             "abstract": None,
             "citation_count": 10,
@@ -386,10 +389,9 @@ class TestRecordToPaper:
 
     def test_none_author_is_skipped(self) -> None:
         paper_node = MagicMock()
-        paper_node.__getitem__ = MagicMock(side_effect={
+        paper_node.get = MagicMock(side_effect=lambda k, d=None: {
             "paper_id": "P1", "title": "T", "publication_year": 2022,
-        }.__getitem__)
-        paper_node.get = MagicMock(return_value=None)
+        }.get(k, d))
 
         record = MagicMock()
         record.__getitem__ = MagicMock(

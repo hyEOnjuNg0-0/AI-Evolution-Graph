@@ -25,7 +25,8 @@ AiEvoGraph/
 │       │   │   ├── method_extraction_service.py # MethodExtractionService (추출 조율 서비스)
 │       │   │   ├── entity_normalization_service.py # EntityNormalizationService (전역 정규화 서비스)
 │       │   │   ├── method_graph_service.py     # MethodGraphService (추출→정규화→저장 오케스트레이션)
-│       │   │   └── vector_retrieval_service.py # VectorRetrievalService (임베딩 생성·저장·유사도 검색, Layer B Step 3.1)
+│       │   │   ├── vector_retrieval_service.py # VectorRetrievalService (임베딩 생성·저장·유사도 검색, Layer B Step 3.1)
+│       │   │   └── graph_retrieval_service.py  # GraphRetrievalService (N-hop citation 확장 검색, Layer B Step 3.2)
 │       │   ├── __init__.py
 │       │   └── models.py                       # 도메인 모델 (Author, Paper, Citation, Method, MethodRelation, ExtractionResult)
 │       ├── infrastructure/
@@ -55,7 +56,8 @@ AiEvoGraph/
 │   ├── test_llm_entity_normalizer.py           # LLMEntityNormalizer + _find_candidate_clusters 단위 테스트
 │   ├── test_method_graph_service.py            # MethodGraphService 단위 테스트
 │   ├── test_openai_embedding_client.py         # OpenAIEmbeddingClient 단위 테스트 (OpenAI client mock)
-│   └── test_vector_retrieval_service.py        # VectorRetrievalService 단위 테스트
+│   ├── test_vector_retrieval_service.py        # VectorRetrievalService 단위 테스트
+│   └── test_graph_retrieval_service.py         # GraphRetrievalService 단위 테스트
 ├── docs/
 │   ├── 00_setup.md
 │   ├── 01_TemporalCitationGraph.md
