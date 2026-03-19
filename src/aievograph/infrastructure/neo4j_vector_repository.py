@@ -11,8 +11,9 @@ from typing import Any
 
 from neo4j import Driver
 
-from aievograph.domain.models import Author, Paper, ScoredPaper
+from aievograph.domain.models import ScoredPaper
 from aievograph.domain.ports.vector_repository import VectorRepositoryPort
+from aievograph.infrastructure.neo4j_graph_repository import _record_to_paper
 
 logger = logging.getLogger(__name__)
 
@@ -44,29 +45,7 @@ ORDER BY score DESC
 
 def _record_to_scored_paper(record: Any) -> ScoredPaper:
     """Convert a Neo4j similarity-search record to a ScoredPaper domain object."""
-    node = record["p"]
-    raw_authors: list[Any] = record["authors"] or []
-    authors = [
-        Author(author_id=a["author_id"], name=a["name"])
-        for a in raw_authors
-        if a is not None and a.get("author_id") and a.get("name")
-    ]
-    publication_year = node.get("publication_year")
-    if publication_year is None:
-        raise ValueError(
-            f"Paper node missing required field 'publication_year': paper_id={node.get('paper_id')}"
-        )
-    paper = Paper(
-        paper_id=node["paper_id"],
-        title=node["title"],
-        publication_year=publication_year,
-        venue=node.get("venue"),
-        abstract=node.get("abstract"),
-        citation_count=node.get("citation_count") or 0,
-        reference_count=node.get("reference_count") or 0,
-        authors=authors,
-    )
-    return ScoredPaper(paper=paper, score=float(record["score"]))
+    return ScoredPaper(paper=_record_to_paper(record), score=float(record["score"]))
 
 
 class Neo4jVectorRepository(VectorRepositoryPort):
