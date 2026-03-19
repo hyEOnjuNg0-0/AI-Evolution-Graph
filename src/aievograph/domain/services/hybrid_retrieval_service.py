@@ -81,7 +81,8 @@ class HybridRetrievalService:
 
         Raises:
             ValueError: On empty query, invalid query_type, non-positive top_k/hops,
-                        or hops exceeding _MAX_HOPS.
+                        hops exceeding _MAX_HOPS, or alpha/beta outside [0.0, 1.0] or
+                        both zero (which would produce all-zero scores).
         """
         if not query.strip():
             raise ValueError("query must not be empty")
@@ -101,11 +102,26 @@ class HybridRetrievalService:
         a = alpha if alpha is not None else base_alpha
         b = beta if beta is not None else base_beta
 
-        # Step 1: Vector search — semantic candidates become graph expansion seeds.
+        # Validate resolved weights (C-1: negative → invalid ScoredPaper score;
+        # C-2: >1.0 each → score exceeds [0, 1] range; C-3: both 0 → unrankable).
+        if not (0.0 <= a <= 1.0):
+            raise ValueError(f"alpha must be in [0.0, 1.0], got {a}")
+        if not (0.0 <= b <= 1.0):
+            raise ValueError(f"beta must be in [0.0, 1.0], got {b}")
+        if a + b == 0.0:
+            raise ValueError("alpha + beta must be > 0; all-zero weights produce unrankable scores")
+
+        # Step 1: Vector search — top_k semantic candidates become graph expansion seeds.
+        # Design note: seeds are intentionally capped at top_k. Graph-only candidates
+        # contribute via graph_prox; their lower hybrid score reflects the intentional
+        # weighting of semantic signal. See 03_retrieval.md §Step 3.3 for the spec.
         vector_results = self._vector_service.search(query, top_k=top_k)
 
         # Accumulate candidates: paper_id → Paper, semantic score, minimum hop distance.
-        papers: dict[str, object] = {}   # paper_id → Paper
+        # Every entry in `papers` is guaranteed to also have an entry in `graph_distances`
+        # (seeds set to 0, graph neighbors set on insertion/update), so direct dict access
+        # is safe in the scoring loop below.
+        papers: dict[str, Paper] = {}
         semantic_scores: dict[str, float] = {}
         graph_distances: dict[str, int] = {}
 
@@ -123,23 +139,25 @@ class HybridRetrievalService:
             )
             for neighbor_paper, hop_dist in neighbors:
                 pid = neighbor_paper.paper_id
+                # If the paper is already present as a vector seed, keep the vector
+                # version so that its semantic_score is preserved (H-2: vector priority).
                 if pid not in papers:
                     papers[pid] = neighbor_paper
-                # Keep minimum hop distance across all seeds.
+                # Track minimum hop distance across all seeds.
                 if pid not in graph_distances or hop_dist < graph_distances[pid]:
                     graph_distances[pid] = hop_dist
 
         # Steps 3–4: Score all candidates.
+        # graph_distances[pid] always exists here (see invariant comment above).
         scored: list[ScoredPaper] = []
-        for pid, paper in papers.items():  # type: ignore[assignment]
+        for pid, paper in papers.items():
             sem_sim = semantic_scores.get(pid, 0.0)
-            hop = graph_distances.get(pid)
-            g_prox = _graph_proximity(hop) if hop is not None else 0.0
+            g_prox = _graph_proximity(graph_distances[pid])
             score = a * sem_sim + b * g_prox
-            scored.append(ScoredPaper(paper=paper, score=score))  # type: ignore[arg-type]
+            scored.append(ScoredPaper(paper=paper, score=score))
 
-        # Step 5: Sort descending, take top_k.
-        scored.sort(key=lambda sp: sp.score, reverse=True)
+        # Step 5: Sort descending; paper_id is a deterministic tiebreaker.
+        scored.sort(key=lambda sp: (-sp.score, sp.paper.paper_id))
         logger.debug(
             "Hybrid search for %r (type=%s, α=%.2f, β=%.2f, hops=%d) → %d/%d papers selected",
             query,

@@ -100,6 +100,26 @@ class TestSearchValidation:
         result = service.search("query", hops=_MAX_HOPS)
         assert isinstance(result, Subgraph)
 
+    def test_raises_on_negative_alpha(self, service):
+        with pytest.raises(ValueError, match="alpha"):
+            service.search("query", alpha=-0.1)
+
+    def test_raises_on_alpha_greater_than_one(self, service):
+        with pytest.raises(ValueError, match="alpha"):
+            service.search("query", alpha=1.1)
+
+    def test_raises_on_negative_beta(self, service):
+        with pytest.raises(ValueError, match="beta"):
+            service.search("query", beta=-0.1)
+
+    def test_raises_on_beta_greater_than_one(self, service):
+        with pytest.raises(ValueError, match="beta"):
+            service.search("query", beta=1.1)
+
+    def test_raises_on_both_weights_zero(self, service):
+        with pytest.raises(ValueError, match="alpha \\+ beta"):
+            service.search("query", alpha=0.0, beta=0.0)
+
 
 # ---------------------------------------------------------------------------
 # HybridRetrievalService.search — output type
@@ -212,6 +232,19 @@ class TestSearchScoring:
         result = service.search("query", top_k=3)
 
         assert len(result.papers) <= 3
+
+    def test_tiebreaker_is_deterministic(self, service, vector_service, graph_repo):
+        # Two papers with identical scores must always come out in the same order.
+        vector_service.search.return_value = [
+            _make_scored_paper("zzz", score=0.5),
+            _make_scored_paper("aaa", score=0.5),
+        ]
+        graph_repo.get_citation_neighborhood_with_distances.return_value = []
+
+        r1 = service.search("query", query_type="balanced")
+        r2 = service.search("query", query_type="balanced")
+
+        assert [p.paper.paper_id for p in r1.papers] == [p.paper.paper_id for p in r2.papers]
 
 
 # ---------------------------------------------------------------------------
