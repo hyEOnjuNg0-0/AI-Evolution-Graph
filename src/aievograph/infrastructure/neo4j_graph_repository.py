@@ -103,6 +103,18 @@ RETURN p, collect(a) AS authors
 LIMIT $limit
 """
 
+# Returns the minimum hop distance to each neighbor across all paths.
+_GET_NEIGHBORHOOD_WITH_DISTANCES_TEMPLATE = """\
+MATCH (seed:Paper {{paper_id: $paper_id}})
+MATCH path = (seed)-[:CITES*1..{hops}]-(neighbor:Paper)
+WHERE neighbor.paper_id <> $paper_id
+WITH neighbor, min(length(path)) AS hop_dist
+OPTIONAL MATCH (neighbor)-[:WRITTEN_BY]->(a:Author)
+WITH neighbor AS p, hop_dist, collect(a) AS authors
+RETURN p, authors, hop_dist
+LIMIT $limit
+"""
+
 _MAX_RESULT_PAPERS = 1000
 
 
@@ -249,3 +261,11 @@ class Neo4jGraphRepository(GraphRepositoryPort):
         with self._driver.session() as session:
             result = session.run(cypher, paper_id=paper_id, limit=_MAX_RESULT_PAPERS)
             return [_record_to_paper(record) for record in result]
+
+    def get_citation_neighborhood_with_distances(
+        self, paper_id: str, hops: int
+    ) -> list[tuple[Paper, int]]:
+        cypher = _GET_NEIGHBORHOOD_WITH_DISTANCES_TEMPLATE.format(hops=int(hops))
+        with self._driver.session() as session:
+            result = session.run(cypher, paper_id=paper_id, limit=_MAX_RESULT_PAPERS)
+            return [(_record_to_paper(record), record["hop_dist"]) for record in result]

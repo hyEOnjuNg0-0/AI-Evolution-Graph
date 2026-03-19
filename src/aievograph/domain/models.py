@@ -144,3 +144,14 @@ class ScoredPaper(BaseModel):
     # ge=0.0 only: cosine similarity is non-negative, but floating-point arithmetic
     # can push the value marginally above 1.0, so no upper bound is enforced.
     score: float = Field(..., ge=0.0)
+
+
+# Subgraph
+#  └ papers  (ranked ScoredPaper list)
+class Subgraph(BaseModel):
+    """Query-specific subgraph produced by hybrid retrieval.
+
+    papers is ordered by hybrid_score descending and capped at top_k.
+    """
+
+    papers: list["ScoredPaper"] = Field(default_factory=list)

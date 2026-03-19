@@ -55,3 +55,15 @@ class GraphRepositoryPort(ABC):
         Implementations may cap result size internally (e.g. LIMIT).
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def get_citation_neighborhood_with_distances(
+        self, paper_id: str, hops: int
+    ) -> list[tuple["Paper", int]]:
+        """Return (Paper, min_hop_distance) pairs for all neighbors within `hops` of the seed.
+
+        hop_distance >= 1. Seed paper itself is excluded.
+        When multiple paths exist, the minimum hop distance is returned.
+        Implementations may cap result size internally (e.g. LIMIT).
+        """
+        raise NotImplementedError

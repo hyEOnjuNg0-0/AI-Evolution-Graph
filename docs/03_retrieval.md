@@ -73,12 +73,12 @@ query + params (α, β, query_type, top_k, hops)
 
 #### 구현 사항
 
-* \[ ] `GraphRepositoryPort`에 `get_citation_neighborhood_with_distances(paper_id, hops) → list[tuple[Paper, int]]` 추가
-* \[ ] `Neo4jGraphRepository` Cypher 수정 (hop 거리 반환)
-* \[ ] `HybridRetrievalService` 구현 (위 파이프라인)
-* \[ ] 질의 유형별 가중치 자동 조정 로직
-* \[ ] Subgraph 출력 포맷 정의 (논문 노드, citation edge, method/author 노드)
-* \[ ] 단위 테스트: 점수 계산, 가중치 조정
+* \[x] `GraphRepositoryPort`에 `get_citation_neighborhood_with_distances(paper_id, hops) → list[tuple[Paper, int]]` 추가
+* \[x] `Neo4jGraphRepository` Cypher 수정 (hop 거리 반환)
+* \[x] `HybridRetrievalService` 구현 (위 파이프라인)
+* \[x] 질의 유형별 가중치 자동 조정 로직
+* \[x] Subgraph 출력 포맷 정의 (`Subgraph(papers: list[ScoredPaper])` in models.py)
+* \[x] 단위 테스트: 점수 계산, 가중치 조정
 * \[ ] 통합 테스트: Layer A 그래프 → Retrieval 파이프라인
 
 ### Phase 3 산출물
