@@ -27,12 +27,56 @@
 
 ### Step 3.3 — Hybrid Retrieval
 
-**입력**: 질의, 검색 파라미터 (α, β, 질의 유형)  
+**입력**: 질의, 검색 파라미터 (α, β, 질의 유형)
 **출력**: Query-specific Subgraph
 
-* \[ ] score = α × semantic\_similarity + β × graph\_proximity 구현
+#### 점수 정의
+
+```
+hybrid_score = α × semantic_similarity + β × graph_proximity
+```
+
+**semantic_similarity**
+- 벡터 검색(cosine similarity)으로 산출, 범위 [0, 1]
+- 벡터 검색 결과에 없는 논문(그래프 확장으로만 발견된 것)은 0으로 고정
+
+**graph_proximity** — 역수 감쇠 방식
+- `graph_proximity = 1.0 / hop_distance`
+- 시드 논문(hop = 0): `1.0`, hop 1: `1.0`, hop 2: `0.5`, hop 3: `0.33`, ...
+- 그래프 이웃에 없는 논문: `0.0`
+
+#### 파이프라인 흐름
+
+```
+query + params (α, β, query_type, top_k, hops)
+    ↓
+[1] VectorRetrievalService.search(query, top_k)     → 의미 유사 후보 (시드)
+    ↓ 상위 top_k 개를 seed로 사용
+[2] GraphRepositoryPort (hop 거리 포함 확장)         → 구조적 이웃 후보
+    ↓
+[3] 후보 합집합 구성
+    ├─ 벡터 후보: semantic_sim=cosine, graph_prox=1.0 (시드이므로)
+    └─ 그래프 확장 후보: semantic_sim=0.0, graph_prox=1/hop_dist
+    ↓
+[4] hybrid_score = α × semantic_sim + β × graph_prox
+    ↓
+[5] Top-k 선택 → Subgraph 구성
+```
+
+#### 질의 유형별 가중치
+
+| query_type | α | β |
+|---|---|---|
+| `"semantic"` | 0.9 | 0.1 |
+| `"structural"` | 0.1 | 0.9 |
+| `"balanced"` | 0.5 | 0.5 |
+
+#### 구현 사항
+
+* \[ ] `GraphRepositoryPort`에 `get_citation_neighborhood_with_distances(paper_id, hops) → list[tuple[Paper, int]]` 추가
+* \[ ] `Neo4jGraphRepository` Cypher 수정 (hop 거리 반환)
+* \[ ] `HybridRetrievalService` 구현 (위 파이프라인)
 * \[ ] 질의 유형별 가중치 자동 조정 로직
-* \[ ] Top-k 선택 및 Subgraph 구성
 * \[ ] Subgraph 출력 포맷 정의 (논문 노드, citation edge, method/author 노드)
 * \[ ] 단위 테스트: 점수 계산, 가중치 조정
 * \[ ] 통합 테스트: Layer A 그래프 → Retrieval 파이프라인
