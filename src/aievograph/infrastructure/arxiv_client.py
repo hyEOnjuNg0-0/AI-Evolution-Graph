@@ -26,7 +26,7 @@ import httpx
 from aievograph.config.settings import AppSettings
 from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
-from aievograph.domain.services.paper_filter import filter_top_cited
+from aievograph.domain.utils.paper_filter import filter_top_cited
 from aievograph.infrastructure.file_cache import (
     checkpoint_path,
     load_checkpoint,

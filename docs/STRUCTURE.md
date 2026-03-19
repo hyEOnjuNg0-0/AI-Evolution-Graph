@@ -21,18 +21,22 @@ AiEvoGraph/
 │       │   ├── services/
 │       │   │   ├── __init__.py
 │       │   │   ├── citation_graph_service.py   # CitationGraphService (Citation Graph 구축 서비스)
-│       │   │   ├── paper_filter.py             # 논문 수집 전처리 필터 (연도별 top-N% 인용 수 기준으로 노이즈 제거)
 │       │   │   ├── method_extraction_service.py # MethodExtractionService (추출 조율 서비스)
 │       │   │   ├── entity_normalization_service.py # EntityNormalizationService (전역 정규화 서비스)
 │       │   │   ├── method_graph_service.py     # MethodGraphService (추출→정규화→저장 오케스트레이션)
 │       │   │   ├── vector_retrieval_service.py # VectorRetrievalService (임베딩 생성·저장·유사도 검색, Layer B Step 3.1)
 │       │   │   ├── graph_retrieval_service.py  # GraphRetrievalService (N-hop citation 확장 검색, Layer B Step 3.2)
 │       │   │   └── hybrid_retrieval_service.py # HybridRetrievalService (α×semantic + β×graph 점수 기반 Subgraph, Layer B Step 3.3)
+│       │   ├── utils/
+│       │   │   ├── __init__.py
+│       │   │   └── paper_filter.py             # 논문 수집 전처리 필터 (연도별 top-N% 인용 수 기준으로 노이즈 제거)
 │       │   ├── __init__.py
 │       │   └── models.py                       # 도메인 모델 (Author, Paper, Citation, Method, MethodRelation, ExtractionResult)
 │       ├── infrastructure/
 │       │   ├── __init__.py
 │       │   ├── logging.py
+│       │   ├── file_cache.py                   # JSON 파일 캐시·체크포인트 공유 유틸리티 (read_json, write_json, checkpoint_path 등)
+│       │   ├── http_utils.py                   # HTTP 재시도 공유 유틸리티 (request_with_retry, 지수 백오프)
 │       │   ├── neo4j_graph_repository.py       # Neo4jGraphRepository (GraphRepositoryPort 구현체)
 │       │   ├── neo4j_vector_repository.py      # Neo4jVectorRepository (VectorRepositoryPort 구현체)
 │       │   ├── openai_embedding_client.py      # OpenAIEmbeddingClient (EmbeddingPort 구현체, text-embedding-3-small)

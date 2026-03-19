@@ -1,7 +1,7 @@
 import pytest
 
 from aievograph.domain.models import Paper
-from aievograph.domain.services.paper_filter import (
+from aievograph.domain.utils.paper_filter import (
     compute_citation_thresholds,
     filter_top_cited,
 )
