@@ -117,6 +117,89 @@ LIMIT $limit
 
 _MAX_RESULT_PAPERS = 1000
 
+_GET_ALL_METHOD_NAMES = "MATCH (m:Method) RETURN m.name AS name ORDER BY m.name"
+
+# Re-point all edges from variant to canonical, then delete variant.
+# All steps run inside a single explicit transaction (see merge_method_nodes).
+# Self-loop prevention:
+#   - incoming Method steps (2-4): WHERE src.name <> $canonical AND src.name <> $variant
+#   - outgoing steps (5-7): WHERE tgt.name <> $variant AND tgt.name <> $canonical
+# Step 8 MATCHes canonical first so that a missing canonical aborts the delete.
+_MERGE_METHOD_NODES_STEPS = [
+    # 1. incoming USES: (:Paper)-[:USES]->(variant) → (:Paper)-[:USES]->(canonical)
+    #    Paper nodes cannot be canonical/variant so no self-loop risk here.
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (p:Paper)-[:USES]->(variant)
+WITH canonical, collect(p) AS papers
+FOREACH (p IN papers | MERGE (p)-[:USES]->(canonical))
+""",
+    # 2. incoming IMPROVES: (:src:Method)-[:IMPROVES]->(variant) → (:src)-[:IMPROVES]->(canonical)
+    #    Skip if src IS canonical to prevent (canonical)-[:IMPROVES]->(canonical) self-loop.
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (src:Method)-[:IMPROVES]->(variant)
+WHERE src.name <> $canonical AND src.name <> $variant
+WITH canonical, collect(src) AS srcs
+FOREACH (s IN srcs | MERGE (s)-[:IMPROVES]->(canonical))
+""",
+    # 3. incoming EXTENDS
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (src:Method)-[:EXTENDS]->(variant)
+WHERE src.name <> $canonical AND src.name <> $variant
+WITH canonical, collect(src) AS srcs
+FOREACH (s IN srcs | MERGE (s)-[:EXTENDS]->(canonical))
+""",
+    # 4. incoming REPLACES
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (src:Method)-[:REPLACES]->(variant)
+WHERE src.name <> $canonical AND src.name <> $variant
+WITH canonical, collect(src) AS srcs
+FOREACH (s IN srcs | MERGE (s)-[:REPLACES]->(canonical))
+""",
+    # 5. outgoing IMPROVES: (variant)-[:IMPROVES]->(tgt) → (canonical)-[:IMPROVES]->(tgt)
+    #    Skip self-loops: tgt must not be variant or canonical.
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (variant)-[:IMPROVES]->(tgt:Method)
+WHERE tgt.name <> $variant AND tgt.name <> $canonical
+WITH canonical, collect(tgt) AS tgts
+FOREACH (t IN tgts | MERGE (canonical)-[:IMPROVES]->(t))
+""",
+    # 6. outgoing EXTENDS
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (variant)-[:EXTENDS]->(tgt:Method)
+WHERE tgt.name <> $variant AND tgt.name <> $canonical
+WITH canonical, collect(tgt) AS tgts
+FOREACH (t IN tgts | MERGE (canonical)-[:EXTENDS]->(t))
+""",
+    # 7. outgoing REPLACES
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+OPTIONAL MATCH (variant)-[:REPLACES]->(tgt:Method)
+WHERE tgt.name <> $variant AND tgt.name <> $canonical
+WITH canonical, collect(tgt) AS tgts
+FOREACH (t IN tgts | MERGE (canonical)-[:REPLACES]->(t))
+""",
+    # 8. Delete variant. Requires canonical to exist — if canonical is absent the
+    #    MATCH fails and the delete is skipped, preventing silent data loss.
+    """
+MATCH (canonical:Method {name: $canonical})
+MATCH (variant:Method  {name: $variant})
+DETACH DELETE variant
+""",
+]
+
 
 def _record_to_paper(record: Any) -> Paper:
     """Convert a Neo4j record to a Paper domain object.
@@ -269,3 +352,32 @@ class Neo4jGraphRepository(GraphRepositoryPort):
         with self._driver.session() as session:
             result = session.run(cypher, paper_id=paper_id, limit=_MAX_RESULT_PAPERS)
             return [(_record_to_paper(record), record["hop_dist"]) for record in result]
+
+    def get_all_method_names(self) -> list[str]:
+        with self._driver.session() as session:
+            result = session.run(_GET_ALL_METHOD_NAMES)
+            return [record["name"] for record in result]
+
+    def merge_method_nodes(self, canonical_name: str, variant_name: str) -> None:
+        """Re-point all edges from variant to canonical, then delete the variant node.
+
+        All 8 steps run in a single explicit write transaction so that a mid-step
+        failure rolls back the entire operation and leaves the graph consistent.
+        Raises ValueError if the canonical node does not exist.
+        """
+        def _tx(tx) -> None:
+            # Fail fast: canonical must exist before any edge is moved.
+            result = tx.run(
+                "MATCH (m:Method {name: $name}) RETURN count(m) AS cnt",
+                name=canonical_name,
+            )
+            if result.single()["cnt"] == 0:
+                raise ValueError(
+                    f"Canonical method node '{canonical_name}' not found in the graph."
+                )
+            for step in _MERGE_METHOD_NODES_STEPS:
+                tx.run(step, canonical=canonical_name, variant=variant_name)
+
+        with self._driver.session() as session:
+            session.execute_write(_tx)
+        logger.debug("Merged method node '%s' into '%s'.", variant_name, canonical_name)

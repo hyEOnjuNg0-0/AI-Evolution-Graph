@@ -24,6 +24,7 @@ AiEvoGraph/
 │       │   │   ├── method_extraction_service.py # MethodExtractionService (추출 조율 서비스)
 │       │   │   ├── entity_normalization_service.py # EntityNormalizationService (전역 정규화 서비스)
 │       │   │   ├── method_graph_service.py     # MethodGraphService (추출→정규화→저장 오케스트레이션)
+│       │   │   ├── method_deduplication_service.py # MethodDeduplicationService (사후 중복 Method 노드 병합)
 │       │   │   ├── vector_retrieval_service.py # VectorRetrievalService (임베딩 생성·저장·유사도 검색, Layer B Step 3.1)
 │       │   │   ├── graph_retrieval_service.py  # GraphRetrievalService (N-hop citation 확장 검색, Layer B Step 3.2)
 │       │   │   └── hybrid_retrieval_service.py # HybridRetrievalService (α×semantic + β×graph 점수 기반 Subgraph, Layer B Step 3.3)
@@ -77,6 +78,9 @@ AiEvoGraph/
 │   ├── STRUCTURE.md
 │   ├── TECHSPEC.md
 │   └── project_setup.md
+├── scripts/
+│   ├── ingest.py                               # 논문 수집·그래프 구축 CLI
+│   └── dedup_methods.py                        # Method 노드 사후 중복 제거 CLI (--dry-run 지원)
 ├── .env.example
 ├── .gitignore
 ├── docker-compose.yml

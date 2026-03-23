@@ -67,3 +67,18 @@ class GraphRepositoryPort(ABC):
         Implementations may cap result size internally (e.g. LIMIT).
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def get_all_method_names(self) -> list[str]:
+        """Return all Method node names stored in the graph, ordered alphabetically."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def merge_method_nodes(self, canonical_name: str, variant_name: str) -> None:
+        """Merge variant Method node into canonical, then delete the variant.
+
+        All edges (USES, IMPROVES, EXTENDS, REPLACES) from/to the variant are
+        re-pointed to the canonical node before the variant is deleted.
+        Self-loops are skipped.
+        """
+        raise NotImplementedError
