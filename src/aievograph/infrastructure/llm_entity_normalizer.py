@@ -43,6 +43,11 @@ RULES:
 4. The canonical name should be the most widely recognized, official form.
 5. If all names in a cluster are actually DIFFERENT methods, return each as its own \
    group with an empty variants list.
+6. A name that adds a modifier (dimension, direction, strategy prefix, scope qualifier, \
+   etc.) to a general term describes a MORE SPECIFIC concept — do NOT merge it into the \
+   general term. If names differ in specificity, keep each as its own group. \
+   Examples of incorrect merges: "2D Convolution"→"Convolution", \
+   "1-vs-All Classification"→"Classification", "Bidirectional LSTM"→"LSTM".
 
 EXAMPLE:
 Input clusters: [["BERT", "bert", "Bert"], ["GPT-3", "GPT3", "gpt-3"]]
