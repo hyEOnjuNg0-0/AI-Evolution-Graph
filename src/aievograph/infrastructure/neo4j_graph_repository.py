@@ -124,6 +124,10 @@ _GET_ALL_METHOD_NAMES = "MATCH (m:Method) RETURN m.name AS name ORDER BY m.name"
 # Self-loop prevention:
 #   - incoming Method steps (2-4): WHERE src.name <> $canonical AND src.name <> $variant
 #   - outgoing steps (5-7): WHERE tgt.name <> $variant AND tgt.name <> $canonical
+# Evidence preservation (steps 2-7):
+#   Edges are collected as {node, evidence} pairs; COALESCE keeps an existing
+#   evidence value when canonical already has an edge, and fills in the variant's
+#   evidence only when the edge is newly created.
 # Step 8 MATCHes canonical first so that a missing canonical aborts the delete.
 _MERGE_METHOD_NODES_STEPS = [
     # 1. incoming USES: (:Paper)-[:USES]->(variant) → (:Paper)-[:USES]->(canonical)
@@ -137,59 +141,80 @@ FOREACH (p IN papers | MERGE (p)-[:USES]->(canonical))
 """,
     # 2. incoming IMPROVES: (:src:Method)-[:IMPROVES]->(variant) → (:src)-[:IMPROVES]->(canonical)
     #    Skip if src IS canonical to prevent (canonical)-[:IMPROVES]->(canonical) self-loop.
+    #    Collect (src, evidence) pairs so the evidence property is carried to the new edge.
+    #    COALESCE keeps the existing evidence if canonical already has an edge from src.
     """
 MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
-OPTIONAL MATCH (src:Method)-[:IMPROVES]->(variant)
+OPTIONAL MATCH (src:Method)-[r:IMPROVES]->(variant)
 WHERE src.name <> $canonical AND src.name <> $variant
-WITH canonical, collect(src) AS srcs
-FOREACH (s IN srcs | MERGE (s)-[:IMPROVES]->(canonical))
+WITH canonical, [p IN collect({src: src, evidence: r.evidence}) WHERE p.src IS NOT NULL] AS pairs
+FOREACH (pair IN pairs |
+    MERGE (pair.src)-[nr:IMPROVES]->(canonical)
+    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
+)
 """,
     # 3. incoming EXTENDS
     """
 MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
-OPTIONAL MATCH (src:Method)-[:EXTENDS]->(variant)
+OPTIONAL MATCH (src:Method)-[r:EXTENDS]->(variant)
 WHERE src.name <> $canonical AND src.name <> $variant
-WITH canonical, collect(src) AS srcs
-FOREACH (s IN srcs | MERGE (s)-[:EXTENDS]->(canonical))
+WITH canonical, [p IN collect({src: src, evidence: r.evidence}) WHERE p.src IS NOT NULL] AS pairs
+FOREACH (pair IN pairs |
+    MERGE (pair.src)-[nr:EXTENDS]->(canonical)
+    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
+)
 """,
     # 4. incoming REPLACES
     """
 MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
-OPTIONAL MATCH (src:Method)-[:REPLACES]->(variant)
+OPTIONAL MATCH (src:Method)-[r:REPLACES]->(variant)
 WHERE src.name <> $canonical AND src.name <> $variant
-WITH canonical, collect(src) AS srcs
-FOREACH (s IN srcs | MERGE (s)-[:REPLACES]->(canonical))
+WITH canonical, [p IN collect({src: src, evidence: r.evidence}) WHERE p.src IS NOT NULL] AS pairs
+FOREACH (pair IN pairs |
+    MERGE (pair.src)-[nr:REPLACES]->(canonical)
+    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
+)
 """,
     # 5. outgoing IMPROVES: (variant)-[:IMPROVES]->(tgt) → (canonical)-[:IMPROVES]->(tgt)
     #    Skip self-loops: tgt must not be variant or canonical.
+    #    Collect (tgt, evidence) pairs so the evidence property is carried to the new edge.
     """
 MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
-OPTIONAL MATCH (variant)-[:IMPROVES]->(tgt:Method)
+OPTIONAL MATCH (variant)-[r:IMPROVES]->(tgt:Method)
 WHERE tgt.name <> $variant AND tgt.name <> $canonical
-WITH canonical, collect(tgt) AS tgts
-FOREACH (t IN tgts | MERGE (canonical)-[:IMPROVES]->(t))
+WITH canonical, [p IN collect({tgt: tgt, evidence: r.evidence}) WHERE p.tgt IS NOT NULL] AS pairs
+FOREACH (pair IN pairs |
+    MERGE (canonical)-[nr:IMPROVES]->(pair.tgt)
+    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
+)
 """,
     # 6. outgoing EXTENDS
     """
 MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
-OPTIONAL MATCH (variant)-[:EXTENDS]->(tgt:Method)
+OPTIONAL MATCH (variant)-[r:EXTENDS]->(tgt:Method)
 WHERE tgt.name <> $variant AND tgt.name <> $canonical
-WITH canonical, collect(tgt) AS tgts
-FOREACH (t IN tgts | MERGE (canonical)-[:EXTENDS]->(t))
+WITH canonical, [p IN collect({tgt: tgt, evidence: r.evidence}) WHERE p.tgt IS NOT NULL] AS pairs
+FOREACH (pair IN pairs |
+    MERGE (canonical)-[nr:EXTENDS]->(pair.tgt)
+    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
+)
 """,
     # 7. outgoing REPLACES
     """
 MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
-OPTIONAL MATCH (variant)-[:REPLACES]->(tgt:Method)
+OPTIONAL MATCH (variant)-[r:REPLACES]->(tgt:Method)
 WHERE tgt.name <> $variant AND tgt.name <> $canonical
-WITH canonical, collect(tgt) AS tgts
-FOREACH (t IN tgts | MERGE (canonical)-[:REPLACES]->(t))
+WITH canonical, [p IN collect({tgt: tgt, evidence: r.evidence}) WHERE p.tgt IS NOT NULL] AS pairs
+FOREACH (pair IN pairs |
+    MERGE (canonical)-[nr:REPLACES]->(pair.tgt)
+    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
+)
 """,
     # 8. Delete variant. Requires canonical to exist — if canonical is absent the
     #    MATCH fails and the delete is skipped, preventing silent data loss.
