@@ -48,6 +48,10 @@ RULES:
    general term. If names differ in specificity, keep each as its own group. \
    Examples of incorrect merges: "2D Convolution"→"Convolution", \
    "1-vs-All Classification"→"Classification", "Bidirectional LSTM"→"LSTM".
+7. DEFAULT TO SEPARATE. Only merge when you are highly confident the names refer to \
+   the exact same concept. If there is any doubt, return each name as its own group \
+   with an empty variants list. A wrong merge permanently destroys information; \
+   a missed merge can be fixed later.
 
 EXAMPLE:
 Input clusters: [["BERT", "bert", "Bert"], ["GPT-3", "GPT3", "gpt-3"]]
@@ -97,7 +101,7 @@ def _trigrams(key: str) -> set[str]:
 
 
 def _find_candidate_clusters(
-    names: list[str], threshold: float = 0.82
+    names: list[str], threshold: float = 0.90, min_key_len: int = 5
 ) -> list[list[str]]:
     """Group names whose normalized string similarity exceeds `threshold`.
 
@@ -108,6 +112,11 @@ def _find_candidate_clusters(
     candidate_pairs grows to O(n²) and the trigram index adds overhead on
     top of the O(n²) comparisons.  Union-find captures transitive similarity
     chains.  Only clusters with 2+ members are returned.
+
+    Short keys (len < min_key_len) are excluded from fuzzy comparison to
+    prevent short acronyms (e.g. "MACE", "RACE") from being falsely clustered
+    due to incidental character overlap.  Exact-key duplicates (ratio == 1.0)
+    are still captured by the trigram index regardless of key length.
     """
     n = len(names)
     if n == 0:
@@ -142,8 +151,13 @@ def _find_candidate_clusters(
                 if j > i:
                     candidate_pairs.add((i, j))
 
-    # Step 3: apply SequenceMatcher only on candidate pairs
+    # Step 3: apply SequenceMatcher only on candidate pairs.
+    # Skip pairs where either key is shorter than min_key_len to avoid false
+    # positives from short acronyms; exact matches (ratio == 1.0) for those
+    # keys are already handled via the trigram index above.
     for i, j in candidate_pairs:
+        if len(keys[i]) < min_key_len or len(keys[j]) < min_key_len:
+            continue
         ratio = SequenceMatcher(None, keys[i], keys[j]).ratio()
         if ratio >= threshold:
             union(i, j)
