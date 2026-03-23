@@ -44,6 +44,14 @@ class MethodDeduplicationService:
         norm_map: NormalizationMap = self._normalizer.normalize(methods)
         logger.info("Normalization map produced %d variant→canonical pairs.", len(norm_map.mapping))
 
+        return self.apply(norm_map)
+
+    def apply(self, norm_map: NormalizationMap) -> NormalizationMap:
+        """Apply a pre-computed NormalizationMap to the graph without calling the LLM.
+
+        Useful when --dry-run was run first and the plan was saved to a file.
+        Returns the same map so callers can inspect what was merged.
+        """
         for variant, canonical in norm_map.mapping.items():
             if variant == canonical:
                 continue
