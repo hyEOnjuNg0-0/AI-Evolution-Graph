@@ -171,7 +171,25 @@ class LLMEntityNormalizer(EntityNormalizerPort):
         logger.info("Sending %d candidate clusters to LLM for normalization.", len(clusters))
         return self._llm_normalize(clusters)
 
+    _BATCH_SIZE = 50
+
     def _llm_normalize(self, clusters: list[list[str]]) -> NormalizationMap:
+        mapping: dict[str, str] = {}
+        total = len(clusters)
+        for batch_start in range(0, total, self._BATCH_SIZE):
+            batch = clusters[batch_start : batch_start + self._BATCH_SIZE]
+            batch_end = min(batch_start + self._BATCH_SIZE, total)
+            logger.info(
+                "LLM normalization batch %d-%d / %d clusters.",
+                batch_start + 1, batch_end, total,
+            )
+            partial = self._llm_normalize_batch(batch)
+            mapping.update(partial)
+
+        logger.debug("Built normalization mapping with %d entries.", len(mapping))
+        return NormalizationMap(mapping=mapping)
+
+    def _llm_normalize_batch(self, clusters: list[list[str]]) -> dict[str, str]:
         response = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
@@ -182,14 +200,12 @@ class LLMEntityNormalizer(EntityNormalizerPort):
         )
         parsed = response.choices[0].message.parsed
         if parsed is None:
-            logger.warning("LLM returned no parsed result for normalization.")
-            return NormalizationMap()
+            logger.warning("LLM returned no parsed result for normalization batch.")
+            return {}
 
-        mapping: dict[str, str] = {}
-        for group in parsed.groups:
-            for variant in group.variants:
-                if variant != group.canonical:
-                    mapping[variant] = group.canonical
-
-        logger.debug("Built normalization mapping with %d entries.", len(mapping))
-        return NormalizationMap(mapping=mapping)
+        return {
+            variant: group.canonical
+            for group in parsed.groups
+            for variant in group.variants
+            if variant != group.canonical
+        }

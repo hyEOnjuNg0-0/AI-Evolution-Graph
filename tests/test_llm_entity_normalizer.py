@@ -177,3 +177,67 @@ class TestLLMEntityNormalizer:
 
         assert result.mapping == {}
         client.beta.chat.completions.parse.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Tests: _llm_normalize batching
+# ---------------------------------------------------------------------------
+
+def _make_parsed_response(groups: list[dict]) -> MagicMock:
+    """Return a mock completions.parse() response with the given groups."""
+    from aievograph.infrastructure.llm_entity_normalizer import (
+        _NormalizationGroup,
+        _NormalizationResponse,
+    )
+    obj = _NormalizationResponse(groups=[_NormalizationGroup(**g) for g in groups])
+    return MagicMock(choices=[MagicMock(message=MagicMock(parsed=obj))])
+
+
+def _make_null_response() -> MagicMock:
+    return MagicMock(choices=[MagicMock(message=MagicMock(parsed=None))])
+
+
+def _dummy_clusters(n: int) -> list[list[str]]:
+    return [[f"method_{i}_a", f"method_{i}_b"] for i in range(n)]
+
+
+class TestLLMNormalizeBatching:
+    def test_50_clusters_makes_one_llm_call(self) -> None:
+        client = _make_client([])
+        normalizer = LLMEntityNormalizer(client)
+
+        normalizer._llm_normalize(_dummy_clusters(50))
+
+        assert client.beta.chat.completions.parse.call_count == 1
+
+    def test_51_clusters_makes_two_llm_calls(self) -> None:
+        client = _make_client([])
+        normalizer = LLMEntityNormalizer(client)
+
+        normalizer._llm_normalize(_dummy_clusters(51))
+
+        assert client.beta.chat.completions.parse.call_count == 2
+
+    def test_multi_batch_results_are_merged(self) -> None:
+        client = MagicMock()
+        client.beta.chat.completions.parse.side_effect = [
+            _make_parsed_response([{"canonical": "BERT", "variants": ["bert"]}]),
+            _make_parsed_response([{"canonical": "GPT-3", "variants": ["gpt3"]}]),
+        ]
+        normalizer = LLMEntityNormalizer(client)
+
+        result = normalizer._llm_normalize(_dummy_clusters(51))
+
+        assert result.mapping == {"bert": "BERT", "gpt3": "GPT-3"}
+
+    def test_null_batch_does_not_discard_other_batches(self) -> None:
+        client = MagicMock()
+        client.beta.chat.completions.parse.side_effect = [
+            _make_parsed_response([{"canonical": "BERT", "variants": ["bert"]}]),
+            _make_null_response(),
+        ]
+        normalizer = LLMEntityNormalizer(client)
+
+        result = normalizer._llm_normalize(_dummy_clusters(51))
+
+        assert result.mapping == {"bert": "BERT"}
