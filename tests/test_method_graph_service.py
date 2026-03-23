@@ -150,4 +150,4 @@ class TestMethodGraphService:
 
         service.build_method_graph(papers)
 
-        service._normalization.normalize.assert_called_once_with(extraction_results)
+        service._normalization.normalize.assert_called_once_with(extraction_results, None)

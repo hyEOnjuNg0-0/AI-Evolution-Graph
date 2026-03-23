@@ -63,12 +63,18 @@ class EntityNormalizationService:
     def normalize(
         self,
         results: list[tuple[str, ExtractionResult]],
+        existing_map: NormalizationMap | None = None,
     ) -> tuple[list[tuple[str, ExtractionResult]], NormalizationMap]:
         """Normalize method names globally across all papers.
 
-        Collects every unique Method from all results, builds a NormalizationMap
-        via the injected normalizer, then re-applies it to each ExtractionResult.
-        Returns the updated results and the map (for persistence / audit).
+        When existing_map is provided, names that already have an exact mapping
+        in existing_map are pre-mapped without calling the LLM.  Only the
+        remaining (unmapped) names are sent to the normalizer for clustering.
+        This prevents cross-batch duplicates from accumulating when the same
+        variant appears in a later ingest run.
+
+        Returns the updated results and the combined NormalizationMap (existing
+        pre-mapped entries merged with any new LLM-derived entries).
         """
         # Collect unique methods across all papers (first-seen description wins)
         all_methods: dict[str, Method] = {}
@@ -77,8 +83,27 @@ class EntityNormalizationService:
                 if method.name not in all_methods:
                     all_methods[method.name] = method
 
-        norm_map = self._normalizer.normalize(list(all_methods.values()))
-        logger.info("Normalization map size: %d entries", len(norm_map.mapping))
+        if existing_map is not None:
+            # Split into pre-mapped (exact match in existing_map) and unmapped.
+            pre_mapped: dict[str, str] = {}
+            unmapped_methods: dict[str, Method] = {}
+            for name, method in all_methods.items():
+                canonical = existing_map.normalize(name)
+                if canonical != name:
+                    pre_mapped[name] = canonical
+                else:
+                    unmapped_methods[name] = method
+
+            new_norm_map = self._normalizer.normalize(list(unmapped_methods.values()))
+            norm_map = NormalizationMap(mapping={**pre_mapped, **new_norm_map.mapping})
+            logger.info(
+                "Normalization: %d pre-mapped (existing), %d new from LLM.",
+                len(pre_mapped),
+                len(new_norm_map.mapping),
+            )
+        else:
+            norm_map = self._normalizer.normalize(list(all_methods.values()))
+            logger.info("Normalization map size: %d entries", len(norm_map.mapping))
 
         normalized = [
             (paper_id, _apply_map(result, norm_map))

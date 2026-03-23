@@ -14,6 +14,7 @@ import logging
 
 from aievograph.domain.models import NormalizationMap, Paper
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
+from aievograph.domain.ports.normalization_map_store import NormalizationMapStorePort
 from aievograph.domain.services.entity_normalization_service import EntityNormalizationService
 from aievograph.domain.services.method_extraction_service import MethodExtractionService
 
@@ -33,8 +34,16 @@ class MethodGraphService:
         self._extraction = extraction_service
         self._normalization = normalization_service
 
-    def build_method_graph(self, papers: list[Paper]) -> NormalizationMap:
+    def build_method_graph(
+        self,
+        papers: list[Paper],
+        map_store: NormalizationMapStorePort | None = None,
+    ) -> NormalizationMap:
         """Extract methods and relations from abstracts, normalize, and persist to graph.
+
+        When map_store is provided, the NormalizationMap from previous runs is loaded
+        before normalization so that known variant→canonical pairs are reused without
+        an LLM call.  The resulting map is saved back to the store after normalization.
 
         Returns the NormalizationMap so callers can inspect which entities were merged.
         """
@@ -44,11 +53,25 @@ class MethodGraphService:
         raw_results = self._extraction.extract_from_papers(papers)
         logger.info("Extracted method data from %d papers with abstracts.", len(raw_results))
 
-        # Step 2: normalize entity names globally across all papers
-        normalized_results, norm_map = self._normalization.normalize(raw_results)
+        # Step 2: normalize entity names, optionally seeded with a persistent map.
+        # Accumulate: merge existing entries with this run's new entries before saving
+        # so that variants discovered in earlier runs are not lost when a later run's
+        # batch does not happen to contain those same names.
+        existing_map = map_store.load() if map_store else None
+        normalized_results, norm_map = self._normalization.normalize(raw_results, existing_map)
+        if map_store:
+            accumulated = NormalizationMap(
+                mapping={**(existing_map.mapping if existing_map else {}), **norm_map.mapping}
+            )
+            map_store.save(accumulated)
         logger.info("Normalization map has %d entries.", len(norm_map.mapping))
 
-        # Step 3: persist Method nodes, USES edges, and typed method relation edges
+        # Step 3: persist Method nodes, USES edges, and typed method relation edges.
+        # NOTE: the map is saved before graph writes.  If graph writes fail mid-way,
+        # the stored map may reference canonical names not yet present in the graph.
+        # This is an acceptable trade-off: the stored map is purely advisory for
+        # future normalization runs; Phase 1 dedup_methods.py corrects any structural
+        # inconsistencies in the graph itself.
         method_count = 0
         uses_count = 0
         relation_count = 0

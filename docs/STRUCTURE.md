@@ -16,6 +16,7 @@ AiEvoGraph/
 │       │   │   ├── paper_collector.py          # PaperCollectorPort (논문 수집 포트)
 │       │   │   ├── method_extractor.py         # MethodExtractorPort (LLM 추출 포트)
 │       │   │   ├── entity_normalizer.py        # EntityNormalizerPort (엔티티 정규화 포트)
+│       │   │   ├── normalization_map_store.py  # NormalizationMapStorePort (정규화 맵 영속성 포트)
 │       │   │   ├── embedding_port.py           # EmbeddingPort (텍스트 임베딩 생성 포트)
 │       │   │   └── vector_repository.py        # VectorRepositoryPort (벡터 인덱스 포트)
 │       │   ├── services/
@@ -44,7 +45,8 @@ AiEvoGraph/
 │       │   ├── arxiv_client.py                 # arXiv API 어댑터 (카테고리별 수집 + S2 enrichment)
 │       │   ├── semantic_scholar_client.py      # Semantic Scholar Bulk API 어댑터
 │       │   ├── llm_method_extractor.py         # LLMMethodExtractor (structured output + gleaning, OpenAI 구현체)
-│       │   └── llm_entity_normalizer.py        # LLMEntityNormalizer (문자열 유사도 클러스터링 + LLM 판단)
+│       │   ├── llm_entity_normalizer.py        # LLMEntityNormalizer (문자열 유사도 클러스터링 + LLM 판단)
+│       │   └── file_normalization_map_store.py # FileNormalizationMapStore (NormalizationMapStorePort 구현체, data/normalization_map.json)
 │       └── __init__.py
 ├── tests/
 │   ├── integration/
