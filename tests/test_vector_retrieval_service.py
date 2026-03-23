@@ -39,6 +39,11 @@ def service(embedding_port, vector_repo):
     return VectorRetrievalService(embedding_port=embedding_port, vector_repo=vector_repo)
 
 
+def test_create_vector_index_called_on_init(embedding_port, vector_repo):
+    VectorRetrievalService(embedding_port=embedding_port, vector_repo=vector_repo)
+    vector_repo.create_vector_index.assert_called_once()
+
+
 class TestSearch:
     def test_embeds_query_and_calls_similarity_search(self, service, embedding_port, vector_repo):
         query_vec = [0.1] * 1536
@@ -113,27 +118,11 @@ class TestEmbedAndStorePapers:
 
         assert embedding_port.embed_batch.call_count == 3
 
-    def test_calls_create_vector_index_on_normal_call(self, service, embedding_port, vector_repo):
-        papers = [_make_paper("p1")]
-        embedding_port.embed_batch.return_value = [[0.1] * 5]
-
-        service.embed_and_store_papers(papers)
-
-        vector_repo.create_vector_index.assert_called_once()
-
-    def test_calls_create_vector_index_before_embed_batch(self, service, embedding_port, vector_repo):
-        call_order: list[str] = []
-        vector_repo.create_vector_index.side_effect = lambda: call_order.append("create_index")
-        embedding_port.embed_batch.side_effect = lambda texts: call_order.append("embed_batch") or [[0.1] * 5]
-
-        service.embed_and_store_papers([_make_paper("p1")])
-
-        assert call_order.index("create_index") < call_order.index("embed_batch")
-
-    def test_calls_create_vector_index_even_for_empty_papers(self, service, embedding_port, vector_repo):
+    def test_embed_and_store_does_not_call_create_vector_index_for_empty_papers(self, service, embedding_port, vector_repo):
+        vector_repo.reset_mock()  # clear the __init__ call
         service.embed_and_store_papers([])
 
-        vector_repo.create_vector_index.assert_called_once()
+        vector_repo.create_vector_index.assert_not_called()
         embedding_port.embed_batch.assert_not_called()
         vector_repo.store_embedding.assert_not_called()
 

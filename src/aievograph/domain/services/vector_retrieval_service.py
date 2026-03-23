@@ -1,6 +1,7 @@
 """
 VectorRetrievalService
     ↓
+  __init__()               → create_vector_index (idempotent; requires DB connection)
   search(query)            → embed query → similarity_search → list[ScoredPaper]
   embed_and_store_papers() → embed_batch → store_embedding per paper
 """
@@ -28,6 +29,7 @@ class VectorRetrievalService:
     ) -> None:
         self._embedding = embedding_port
         self._vector_repo = vector_repo
+        self._vector_repo.create_vector_index()
 
     # ------------------------------------------------------------------
     # Public API
@@ -58,8 +60,6 @@ class VectorRetrievalService:
             if p.paper_id not in seen:
                 seen.add(p.paper_id)
                 unique_papers.append(p)
-
-        self._vector_repo.create_vector_index()
 
         if not unique_papers:
             return
