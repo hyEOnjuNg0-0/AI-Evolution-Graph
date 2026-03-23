@@ -157,6 +157,10 @@ def _find_candidate_clusters(
     # keys are already handled via the trigram index above.
     for i, j in candidate_pairs:
         if len(keys[i]) < min_key_len or len(keys[j]) < min_key_len:
+            # For short keys, only merge exact matches (same normalized form).
+            # Fuzzy matching is skipped to prevent false positives (e.g. "MACE" ↔ "RACE").
+            if keys[i] == keys[j]:
+                union(i, j)
             continue
         ratio = SequenceMatcher(None, keys[i], keys[j]).ratio()
         if ratio >= threshold:
