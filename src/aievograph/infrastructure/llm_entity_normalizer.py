@@ -75,13 +75,34 @@ def _key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
+def _trigrams(key: str) -> set[str]:
+    """Return the set of character trigrams for a normalized key.
+
+    Keys shorter than 3 characters (including the empty string produced by
+    _key() for names that contain no alphanumeric characters) are returned as
+    a single token so they can still be matched against each other via the
+    trigram index.  Empty-key names will share the "" token, causing them to
+    become candidate pairs; SequenceMatcher("", "").ratio() == 1.0, so they
+    will be merged — an expected and acceptable outcome for names that carry
+    no alphanumeric information.
+    """
+    if len(key) < 3:
+        return {key}
+    return {key[i : i + 3] for i in range(len(key) - 2)}
+
+
 def _find_candidate_clusters(
     names: list[str], threshold: float = 0.82
 ) -> list[list[str]]:
     """Group names whose normalized string similarity exceeds `threshold`.
 
-    Uses union-find so that transitive similarity chains are captured.
-    Only clusters with 2+ members are returned.
+    Uses a trigram inverted index to skip pairs with no shared trigrams,
+    reducing SequenceMatcher calls from O(n²) to O(candidate pairs) in the
+    typical case where names are diverse.  Worst-case complexity remains
+    O(n²): if all n names share a common trigram (e.g. all contain "bert"),
+    candidate_pairs grows to O(n²) and the trigram index adds overhead on
+    top of the O(n²) comparisons.  Union-find captures transitive similarity
+    chains.  Only clusters with 2+ members are returned.
     """
     n = len(names)
     if n == 0:
@@ -99,12 +120,30 @@ def _find_candidate_clusters(
     def union(x: int, y: int) -> None:
         parent[find(x)] = find(y)
 
-    for i in range(n):
-        for j in range(i + 1, n):
-            ratio = SequenceMatcher(None, keys[i], keys[j]).ratio()
-            if ratio >= threshold:
-                union(i, j)
+    # Step 1: build trigram inverted index
+    trigram_index: dict[str, set[int]] = defaultdict(set)
+    key_trigrams: list[set[str]] = []
+    for i, k in enumerate(keys):
+        tg = _trigrams(k)
+        key_trigrams.append(tg)
+        for t in tg:
+            trigram_index[t].add(i)
 
+    # Step 2: collect candidate pairs that share at least one trigram
+    candidate_pairs: set[tuple[int, int]] = set()
+    for i in range(n):
+        for t in key_trigrams[i]:
+            for j in trigram_index[t]:
+                if j > i:
+                    candidate_pairs.add((i, j))
+
+    # Step 3: apply SequenceMatcher only on candidate pairs
+    for i, j in candidate_pairs:
+        ratio = SequenceMatcher(None, keys[i], keys[j]).ratio()
+        if ratio >= threshold:
+            union(i, j)
+
+    # Step 4: collect clusters
     groups: dict[int, list[str]] = defaultdict(list)
     for i, name in enumerate(names):
         groups[find(i)].append(name)

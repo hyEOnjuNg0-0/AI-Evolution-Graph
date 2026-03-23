@@ -8,6 +8,7 @@ from aievograph.domain.models import Method, NormalizationMap
 from aievograph.infrastructure.llm_entity_normalizer import (
     LLMEntityNormalizer,
     _find_candidate_clusters,
+    _trigrams,
 )
 
 
@@ -34,6 +35,40 @@ def _make_client(groups: list[dict]) -> MagicMock:
         choices=[MagicMock(message=MagicMock(parsed=response_obj))]
     )
     return client
+
+
+# ---------------------------------------------------------------------------
+# Tests: _trigrams
+# ---------------------------------------------------------------------------
+
+class TestTrigrams:
+    def test_empty_string_returns_single_token(self) -> None:
+        # _key("!!!") == "" — empty keys still produce a token so they can be
+        # matched against each other in the inverted index.
+        assert _trigrams("") == {""}
+
+    def test_single_char_returns_single_token(self) -> None:
+        assert _trigrams("a") == {"a"}
+
+    def test_two_chars_returns_single_token(self) -> None:
+        assert _trigrams("ab") == {"ab"}
+
+    def test_three_chars_returns_one_trigram(self) -> None:
+        assert _trigrams("abc") == {"abc"}
+
+    def test_four_chars_returns_two_trigrams(self) -> None:
+        assert _trigrams("bert") == {"ber", "ert"}
+
+    def test_overlapping_trigrams(self) -> None:
+        assert _trigrams("roberta") == {"rob", "obe", "ber", "ert", "rta"}
+
+    def test_shared_trigrams_between_similar_names(self) -> None:
+        # "bert" and "roberta" share "ber" and "ert" — must appear as candidates
+        assert _trigrams("bert") & _trigrams("roberta") == {"ber", "ert"}
+
+    def test_no_shared_trigrams_between_dissimilar_names(self) -> None:
+        # "gpt3" and "bert" share no trigrams — should not be a candidate pair
+        assert _trigrams("gpt3") & _trigrams("bert") == set()
 
 
 # ---------------------------------------------------------------------------
