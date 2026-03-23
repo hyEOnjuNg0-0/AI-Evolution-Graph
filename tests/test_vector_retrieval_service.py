@@ -113,9 +113,27 @@ class TestEmbedAndStorePapers:
 
         assert embedding_port.embed_batch.call_count == 3
 
-    def test_empty_papers_list_does_nothing(self, service, embedding_port, vector_repo):
+    def test_calls_create_vector_index_on_normal_call(self, service, embedding_port, vector_repo):
+        papers = [_make_paper("p1")]
+        embedding_port.embed_batch.return_value = [[0.1] * 5]
+
+        service.embed_and_store_papers(papers)
+
+        vector_repo.create_vector_index.assert_called_once()
+
+    def test_calls_create_vector_index_before_embed_batch(self, service, embedding_port, vector_repo):
+        call_order: list[str] = []
+        vector_repo.create_vector_index.side_effect = lambda: call_order.append("create_index")
+        embedding_port.embed_batch.side_effect = lambda texts: call_order.append("embed_batch") or [[0.1] * 5]
+
+        service.embed_and_store_papers([_make_paper("p1")])
+
+        assert call_order.index("create_index") < call_order.index("embed_batch")
+
+    def test_calls_create_vector_index_even_for_empty_papers(self, service, embedding_port, vector_repo):
         service.embed_and_store_papers([])
 
+        vector_repo.create_vector_index.assert_called_once()
         embedding_port.embed_batch.assert_not_called()
         vector_repo.store_embedding.assert_not_called()
 

@@ -72,7 +72,6 @@ def main() -> None:
     try:
         graph_repo = Neo4jGraphRepository(driver)
         vector_repo = Neo4jVectorRepository(driver)
-        vector_repo.create_vector_index()  # ensure index exists before querying
         embedding_client = OpenAIEmbeddingClient(api_key=settings.openai_api_key)
 
         vector_service = VectorRetrievalService(embedding_client, vector_repo)

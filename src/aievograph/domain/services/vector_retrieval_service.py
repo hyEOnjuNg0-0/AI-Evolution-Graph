@@ -59,6 +59,8 @@ class VectorRetrievalService:
                 seen.add(p.paper_id)
                 unique_papers.append(p)
 
+        self._vector_repo.create_vector_index()
+
         if not unique_papers:
             return
 
