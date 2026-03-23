@@ -49,20 +49,31 @@ class VectorRetrievalService:
     def embed_and_store_papers(
         self, papers: list[Paper], batch_size: int = _DEFAULT_BATCH_SIZE
     ) -> None:
-        """Generate embeddings in batches and persist them on Paper nodes."""
+        """Generate embeddings in batches and persist them on Paper nodes.
+
+        Skips papers that already have embeddings stored in the vector repository.
+        """
         if batch_size <= 0:
             raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
 
-        # Deduplicate by paper_id while preserving order
+        if not papers:
+            return
+
+        ids_without = set(self._vector_repo.get_paper_ids_without_embedding())
+
+        # Deduplicate by paper_id while preserving order, and skip already-embedded
         seen: set[str] = set()
         unique_papers: list[Paper] = []
         for p in papers:
             if p.paper_id not in seen:
                 seen.add(p.paper_id)
-                unique_papers.append(p)
+                if p.paper_id in ids_without:
+                    unique_papers.append(p)
 
         if not unique_papers:
+            logger.info("All papers already have embeddings. Nothing to do.")
             return
+        logger.info("%d / %d papers need embedding.", len(unique_papers), len(papers))
 
         total = len(unique_papers)
         for start in range(0, total, batch_size):

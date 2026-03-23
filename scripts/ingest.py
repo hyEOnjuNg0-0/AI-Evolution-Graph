@@ -4,8 +4,11 @@ Data ingestion script: Semantic Scholar → Neo4j
 Usage:
   python scripts/ingest.py                      # settings from .env
   python scripts/ingest.py --venues NeurIPS ICML --year-start 2020 --year-end 2023
+  python scripts/ingest.py --embed                   # collect papers and store embeddings
+  python scripts/ingest.py --embed-only              # skip collection, backfill embeddings for existing Neo4j papers
   python scripts/ingest.py --method-graph            # also extract methods and store Method graph
   python scripts/ingest.py --method-graph-only       # skip paper collection, use papers already in Neo4j
+  python scripts/ingest.py --embed --method-graph    # collect + embed + method graph
   python scripts/ingest.py --method-graph --llm-model gpt-4o-mini  # cheaper model
 """
 
@@ -22,10 +25,13 @@ from aievograph.domain.services.citation_graph_service import CitationGraphServi
 from aievograph.domain.services.entity_normalization_service import EntityNormalizationService
 from aievograph.domain.services.method_extraction_service import MethodExtractionService
 from aievograph.domain.services.method_graph_service import MethodGraphService
+from aievograph.domain.services.vector_retrieval_service import VectorRetrievalService
 from aievograph.infrastructure.arxiv_client import ArxivClient
 from aievograph.infrastructure.llm_entity_normalizer import LLMEntityNormalizer
 from aievograph.infrastructure.llm_method_extractor import LLMMethodExtractor
 from aievograph.infrastructure.neo4j_graph_repository import Neo4jGraphRepository
+from aievograph.infrastructure.neo4j_vector_repository import Neo4jVectorRepository
+from aievograph.infrastructure.openai_embedding_client import OpenAIEmbeddingClient
 from aievograph.infrastructure.semantic_scholar_client import SemanticScholarClient
 
 logging.basicConfig(
@@ -90,11 +96,35 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--embed",
+        action="store_true",
+        default=False,
+        help="Generate and store embeddings for collected papers (runs after citation graph).",
+    )
+    parser.add_argument(
+        "--embed-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip paper collection; load papers already in Neo4j and store embeddings only. "
+            "Uses --year-start / --year-end to filter which papers to process."
+        ),
+    )
+    parser.add_argument(
         "--llm-model",
         default="gpt-4o-mini",
-        help="OpenAI model for method extraction and normalization (default: gpt-4o)",
+        help="OpenAI model for method extraction and normalization (default: gpt-4o-mini)",
     )
     return parser.parse_args()
+
+
+def _build_embeddings(vector_repo: Neo4jVectorRepository, papers: list, settings) -> None:
+    """Wire up and run the embedding pipeline."""
+    logger.info("Starting embedding pipeline (papers=%d).", len(papers))
+    embedding_client = OpenAIEmbeddingClient(api_key=settings.openai_api_key)
+    vector_service = VectorRetrievalService(embedding_client, vector_repo)
+    vector_service.embed_and_store_papers(papers)
+    logger.info("Embedding pipeline complete.")
 
 
 def _build_method_graph(repo: Neo4jGraphRepository, papers: list, llm_model: str, settings) -> None:
@@ -125,6 +155,25 @@ async def main() -> None:
     )
     try:
         repo = Neo4jGraphRepository(driver)
+        vector_repo = Neo4jVectorRepository(driver)
+
+        # --- Embed-only: skip collection, backfill embeddings for existing papers ---
+        if args.embed_only:
+            logger.info(
+                "Embed-only mode — loading papers from Neo4j (years=%d-%d).",
+                year_start, year_end,
+            )
+            papers = repo.get_papers_by_year_range(year_start, year_end, venues=args.venues)
+            logger.info("Loaded %d papers from Neo4j.", len(papers))
+            if not papers:
+                logger.warning(
+                    "No papers found in Neo4j for years %d-%d. "
+                    "Run without --embed-only first to collect and store papers.",
+                    year_start, year_end,
+                )
+                return
+            _build_embeddings(vector_repo, papers, settings)
+            return
 
         # --- Method-graph-only: skip collection, read papers from Neo4j ---
         if args.method_graph_only:
@@ -176,7 +225,11 @@ async def main() -> None:
         service.build_citation_graph(papers)
         logger.info("Citation graph ingestion complete.")
 
-        # 2b. Method Evolution Graph (optional)
+        # 2b. Embeddings (optional)
+        if args.embed:
+            _build_embeddings(vector_repo, papers, settings)
+
+        # 2c. Method Evolution Graph (optional)
         if args.method_graph:
             _build_method_graph(repo, papers, args.llm_model, settings)
 

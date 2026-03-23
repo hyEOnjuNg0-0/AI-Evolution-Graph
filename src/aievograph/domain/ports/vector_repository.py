@@ -17,6 +17,11 @@ class VectorRepositoryPort(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_paper_ids_without_embedding(self) -> list[str]:
+        """Return paper_ids of Paper nodes that have no embedding property."""
+        raise NotImplementedError
+
+    @abstractmethod
     def similarity_search(
         self, query_embedding: list[float], top_k: int
     ) -> list[ScoredPaper]:

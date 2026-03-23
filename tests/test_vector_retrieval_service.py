@@ -91,6 +91,7 @@ class TestSearch:
 class TestEmbedAndStorePapers:
     def test_stores_embedding_for_each_paper(self, service, embedding_port, vector_repo):
         papers = [_make_paper(f"p{i}") for i in range(3)]
+        vector_repo.get_paper_ids_without_embedding.return_value = [f"p{i}" for i in range(3)]
         embedding_port.embed_batch.return_value = [[float(i)] * 5 for i in range(3)]
 
         service.embed_and_store_papers(papers, batch_size=10)
@@ -99,6 +100,7 @@ class TestEmbedAndStorePapers:
 
     def test_passes_correct_paper_ids(self, service, embedding_port, vector_repo):
         papers = [_make_paper("paper_a"), _make_paper("paper_b")]
+        vector_repo.get_paper_ids_without_embedding.return_value = ["paper_a", "paper_b"]
         embedding_port.embed_batch.return_value = [[0.1] * 5, [0.2] * 5]
 
         service.embed_and_store_papers(papers)
@@ -108,6 +110,7 @@ class TestEmbedAndStorePapers:
 
     def test_batches_calls_to_embed_batch(self, service, embedding_port, vector_repo):
         papers = [_make_paper(f"p{i}") for i in range(5)]
+        vector_repo.get_paper_ids_without_embedding.return_value = [f"p{i}" for i in range(5)]
         embedding_port.embed_batch.side_effect = [
             [[0.1] * 5, [0.2] * 5],
             [[0.3] * 5, [0.4] * 5],
@@ -136,6 +139,7 @@ class TestEmbedAndStorePapers:
 
     def test_raises_on_embedding_count_mismatch(self, service, embedding_port, vector_repo):
         papers = [_make_paper("p1"), _make_paper("p2")]
+        vector_repo.get_paper_ids_without_embedding.return_value = ["p1", "p2"]
         # API returns only 1 embedding for 2 papers
         embedding_port.embed_batch.return_value = [[0.1] * 5]
 
@@ -144,6 +148,7 @@ class TestEmbedAndStorePapers:
 
     def test_deduplicates_papers_by_paper_id(self, service, embedding_port, vector_repo):
         papers = [_make_paper("p1"), _make_paper("p1"), _make_paper("p2")]
+        vector_repo.get_paper_ids_without_embedding.return_value = ["p1", "p2"]
         embedding_port.embed_batch.return_value = [[0.1] * 5, [0.2] * 5]
 
         service.embed_and_store_papers(papers)
@@ -153,12 +158,32 @@ class TestEmbedAndStorePapers:
 
     def test_deduplication_preserves_order(self, service, embedding_port, vector_repo):
         papers = [_make_paper("p2"), _make_paper("p1"), _make_paper("p2")]
+        vector_repo.get_paper_ids_without_embedding.return_value = ["p2", "p1"]
         embedding_port.embed_batch.return_value = [[0.2] * 5, [0.1] * 5]
 
         service.embed_and_store_papers(papers)
 
         stored_ids = [call.args[0] for call in vector_repo.store_embedding.call_args_list]
         assert stored_ids == ["p2", "p1"]
+
+    def test_skips_papers_with_existing_embeddings(self, service, embedding_port, vector_repo):
+        papers = [_make_paper("p1"), _make_paper("p2"), _make_paper("p3")]
+        vector_repo.get_paper_ids_without_embedding.return_value = ["p2"]
+        embedding_port.embed_batch.return_value = [[0.2] * 5]
+
+        service.embed_and_store_papers(papers)
+
+        stored_ids = [call.args[0] for call in vector_repo.store_embedding.call_args_list]
+        assert stored_ids == ["p2"]
+
+    def test_does_nothing_when_all_papers_already_embedded(self, service, embedding_port, vector_repo):
+        papers = [_make_paper("p1"), _make_paper("p2")]
+        vector_repo.get_paper_ids_without_embedding.return_value = []
+
+        service.embed_and_store_papers(papers)
+
+        embedding_port.embed_batch.assert_not_called()
+        vector_repo.store_embedding.assert_not_called()
 
 
 class TestPaperToText:

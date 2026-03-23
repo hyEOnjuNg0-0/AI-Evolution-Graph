@@ -34,6 +34,12 @@ MATCH (p:Paper {paper_id: $paper_id})
 SET p.embedding = $embedding
 """
 
+_GET_PAPER_IDS_WITHOUT_EMBEDDING = """
+MATCH (p:Paper)
+WHERE p.embedding IS NULL
+RETURN p.paper_id AS paper_id
+"""
+
 _SIMILARITY_SEARCH = f"""
 CALL db.index.vector.queryNodes('{VECTOR_INDEX_NAME}', $top_k, $query_embedding)
 YIELD node AS p, score
@@ -59,6 +65,12 @@ class Neo4jVectorRepository(VectorRepositoryPort):
         with self._driver.session() as session:
             session.run(_CREATE_VECTOR_INDEX)
         logger.info("Vector index '%s' created (or already exists).", VECTOR_INDEX_NAME)
+
+    def get_paper_ids_without_embedding(self) -> list[str]:
+        """Return paper_ids of Paper nodes that have no embedding property."""
+        with self._driver.session() as session:
+            result = session.run(_GET_PAPER_IDS_WITHOUT_EMBEDDING)
+            return [record["paper_id"] for record in result]
 
     def store_embedding(self, paper_id: str, embedding: list[float]) -> None:
         """Set the embedding property on the Paper node with the given ID.
