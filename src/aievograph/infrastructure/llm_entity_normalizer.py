@@ -40,7 +40,9 @@ RULES:
 3. Version/size variants (e.g., "BERT-large", "GPT-3") should be merged into the base \
    name ONLY when the abstract clearly treats them as the same concept; otherwise keep \
    them separate.
-4. The canonical name should be the most widely recognized, official form.
+4. The canonical name MUST be chosen verbatim from the names provided in that cluster. \
+   Do NOT invent, rewrite, or normalize the canonical name — copy it exactly as-is from \
+   the input list. Choose the most widely recognized form among the given names.
 5. If all names in a cluster are actually DIFFERENT methods, return each as its own \
    group with an empty variants list.
 6. A name that adds a modifier (dimension, direction, strategy prefix, scope qualifier, \
@@ -213,6 +215,9 @@ class LLMEntityNormalizer(EntityNormalizerPort):
         return NormalizationMap(mapping=mapping)
 
     def _llm_normalize_batch(self, clusters: list[list[str]]) -> dict[str, str]:
+        # Build a lookup of all names present in this batch for post-LLM validation.
+        all_names_in_batch: set[str] = {name for cluster in clusters for name in cluster}
+
         response = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
@@ -226,9 +231,19 @@ class LLMEntityNormalizer(EntityNormalizerPort):
             logger.warning("LLM returned no parsed result for normalization batch.")
             return {}
 
-        return {
-            variant: group.canonical
-            for group in parsed.groups
-            for variant in group.variants
-            if variant != group.canonical
-        }
+        mapping: dict[str, str] = {}
+        for group in parsed.groups:
+            # Guard: canonical must be one of the names supplied in the input cluster.
+            # If the LLM invented a name, skip the whole group to prevent merging into
+            # a node that does not exist in the graph.
+            if group.canonical not in all_names_in_batch:
+                logger.warning(
+                    "LLM chose an invented canonical '%s' (not in input); skipping group %s.",
+                    group.canonical,
+                    group.variants,
+                )
+                continue
+            for variant in group.variants:
+                if variant != group.canonical:
+                    mapping[variant] = group.canonical
+        return mapping
