@@ -1,5 +1,5 @@
 from typing import ClassVar, Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from datetime import datetime
 
 
@@ -138,11 +138,13 @@ class Citation(BaseModel):
 #  ├ paper
 #  └ score
 class ScoredPaper(BaseModel):
-    """A Paper paired with a similarity score from vector retrieval."""
+    """A Paper paired with a numeric ranking score.
+
+    Used across multiple ranking layers (semantic similarity, centrality, etc.).
+    The score semantics depend on the producing service; ge=0.0 is the only invariant.
+    """
 
     paper: "Paper"
-    # ge=0.0 only: cosine similarity is non-negative, but floating-point arithmetic
-    # can push the value marginally above 1.0, so no upper bound is enforced.
     score: float = Field(..., ge=0.0)
 
 
@@ -155,6 +157,17 @@ class Subgraph(BaseModel):
     """
 
     papers: list["ScoredPaper"] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def papers_must_have_unique_ids(self) -> "Subgraph":
+        """Reject duplicate paper_ids so callers get a loud error instead of silent data loss."""
+        seen: set[str] = set()
+        for sp in self.papers:
+            pid = sp.paper.paper_id
+            if pid in seen:
+                raise ValueError(f"Duplicate paper_id in Subgraph: {pid!r}")
+            seen.add(pid)
+        return self
 
 
 # CentralityScores
