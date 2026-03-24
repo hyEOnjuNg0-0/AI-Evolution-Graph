@@ -182,3 +182,18 @@ class CentralityScores(BaseModel):
     pagerank: float = Field(default=0.0, ge=0.0)
     betweenness: float = Field(default=0.0, ge=0.0)
     combined_score: float = Field(default=0.0, ge=0.0)
+
+
+# RankingResult
+#  ├ top_papers      (combined-score 기준 상위 k개)
+#  └ backbone_paths  (citation DAG에서 추출한 연구 계보 경로, 오래된 논문 → 최신 논문 순)
+class RankingResult(BaseModel):
+    """Output of Layer C combined ranking pipeline (Step 4.3).
+
+    top_papers: Combined-score sorted list (centrality + semantic).
+    backbone_paths: Each path is a list of paper_ids ordered oldest → newest,
+                    forming a research lineage chain in the citation subgraph.
+    """
+
+    top_papers: list[ScoredPaper] = Field(default_factory=list)
+    backbone_paths: list[list[str]] = Field(default_factory=list)
