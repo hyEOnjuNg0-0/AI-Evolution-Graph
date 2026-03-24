@@ -219,25 +219,28 @@ class TestLLMNormalizeBatching:
         assert client.beta.chat.completions.parse.call_count == 2
 
     def test_multi_batch_results_are_merged(self) -> None:
+        # Batch 1 covers clusters 0-49 (method_0_a/b … method_49_a/b).
+        # Batch 2 covers cluster 50 (method_50_a, method_50_b).
         client = MagicMock()
         client.beta.chat.completions.parse.side_effect = [
-            _make_parsed_response([{"canonical": "BERT", "variants": ["bert"]}]),
-            _make_parsed_response([{"canonical": "GPT-3", "variants": ["gpt3"]}]),
+            _make_parsed_response([{"canonical": "method_0_a", "variants": ["method_0_b"]}]),
+            _make_parsed_response([{"canonical": "method_50_a", "variants": ["method_50_b"]}]),
         ]
         normalizer = LLMEntityNormalizer(client)
 
         result = normalizer._llm_normalize(_dummy_clusters(51))
 
-        assert result.mapping == {"bert": "BERT", "gpt3": "GPT-3"}
+        assert result.mapping == {"method_0_b": "method_0_a", "method_50_b": "method_50_a"}
 
     def test_null_batch_does_not_discard_other_batches(self) -> None:
+        # Batch 1 returns a valid merge; batch 2 returns null → batch 1 result kept.
         client = MagicMock()
         client.beta.chat.completions.parse.side_effect = [
-            _make_parsed_response([{"canonical": "BERT", "variants": ["bert"]}]),
+            _make_parsed_response([{"canonical": "method_0_a", "variants": ["method_0_b"]}]),
             _make_null_response(),
         ]
         normalizer = LLMEntityNormalizer(client)
 
         result = normalizer._llm_normalize(_dummy_clusters(51))
 
-        assert result.mapping == {"bert": "BERT"}
+        assert result.mapping == {"method_0_b": "method_0_a"}
