@@ -155,3 +155,17 @@ class Subgraph(BaseModel):
     """
 
     papers: list["ScoredPaper"] = Field(default_factory=list)
+
+
+# CentralityScores
+#  ├ paper_id
+#  ├ pagerank        (normalized to [0, 1])
+#  ├ betweenness     (normalized to [0, 1])
+#  └ combined_score  (γ×pagerank + (1−γ)×betweenness)
+class CentralityScores(BaseModel):
+    """Per-paper structural importance scores from GDS centrality algorithms."""
+
+    paper_id: str
+    pagerank: float = Field(default=0.0, ge=0.0)
+    betweenness: float = Field(default=0.0, ge=0.0)
+    combined_score: float = Field(default=0.0, ge=0.0)

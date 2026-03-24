@@ -148,11 +148,11 @@ MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
 OPTIONAL MATCH (src:Method)-[r:IMPROVES]->(variant)
 WHERE src.name <> $canonical AND src.name <> $variant
-WITH canonical, [p IN collect({src: src, evidence: r.evidence}) WHERE p.src IS NOT NULL] AS pairs
-FOREACH (pair IN pairs |
-    MERGE (pair.src)-[nr:IMPROVES]->(canonical)
-    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
-)
+WITH canonical, collect({src: src, evidence: r.evidence}) AS raw
+UNWIND [p IN raw WHERE p.src IS NOT NULL] AS pair
+WITH canonical, pair.src AS src_node, pair.evidence AS ev
+MERGE (src_node)-[nr:IMPROVES]->(canonical)
+SET nr.evidence = COALESCE(nr.evidence, ev)
 """,
     # 3. incoming EXTENDS
     """
@@ -160,11 +160,11 @@ MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
 OPTIONAL MATCH (src:Method)-[r:EXTENDS]->(variant)
 WHERE src.name <> $canonical AND src.name <> $variant
-WITH canonical, [p IN collect({src: src, evidence: r.evidence}) WHERE p.src IS NOT NULL] AS pairs
-FOREACH (pair IN pairs |
-    MERGE (pair.src)-[nr:EXTENDS]->(canonical)
-    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
-)
+WITH canonical, collect({src: src, evidence: r.evidence}) AS raw
+UNWIND [p IN raw WHERE p.src IS NOT NULL] AS pair
+WITH canonical, pair.src AS src_node, pair.evidence AS ev
+MERGE (src_node)-[nr:EXTENDS]->(canonical)
+SET nr.evidence = COALESCE(nr.evidence, ev)
 """,
     # 4. incoming REPLACES
     """
@@ -172,11 +172,11 @@ MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
 OPTIONAL MATCH (src:Method)-[r:REPLACES]->(variant)
 WHERE src.name <> $canonical AND src.name <> $variant
-WITH canonical, [p IN collect({src: src, evidence: r.evidence}) WHERE p.src IS NOT NULL] AS pairs
-FOREACH (pair IN pairs |
-    MERGE (pair.src)-[nr:REPLACES]->(canonical)
-    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
-)
+WITH canonical, collect({src: src, evidence: r.evidence}) AS raw
+UNWIND [p IN raw WHERE p.src IS NOT NULL] AS pair
+WITH canonical, pair.src AS src_node, pair.evidence AS ev
+MERGE (src_node)-[nr:REPLACES]->(canonical)
+SET nr.evidence = COALESCE(nr.evidence, ev)
 """,
     # 5. outgoing IMPROVES: (variant)-[:IMPROVES]->(tgt) → (canonical)-[:IMPROVES]->(tgt)
     #    Skip self-loops: tgt must not be variant or canonical.
@@ -186,11 +186,11 @@ MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
 OPTIONAL MATCH (variant)-[r:IMPROVES]->(tgt:Method)
 WHERE tgt.name <> $variant AND tgt.name <> $canonical
-WITH canonical, [p IN collect({tgt: tgt, evidence: r.evidence}) WHERE p.tgt IS NOT NULL] AS pairs
-FOREACH (pair IN pairs |
-    MERGE (canonical)-[nr:IMPROVES]->(pair.tgt)
-    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
-)
+WITH canonical, collect({tgt: tgt, evidence: r.evidence}) AS raw
+UNWIND [p IN raw WHERE p.tgt IS NOT NULL] AS pair
+WITH canonical, pair.tgt AS tgt_node, pair.evidence AS ev
+MERGE (canonical)-[nr:IMPROVES]->(tgt_node)
+SET nr.evidence = COALESCE(nr.evidence, ev)
 """,
     # 6. outgoing EXTENDS
     """
@@ -198,11 +198,11 @@ MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
 OPTIONAL MATCH (variant)-[r:EXTENDS]->(tgt:Method)
 WHERE tgt.name <> $variant AND tgt.name <> $canonical
-WITH canonical, [p IN collect({tgt: tgt, evidence: r.evidence}) WHERE p.tgt IS NOT NULL] AS pairs
-FOREACH (pair IN pairs |
-    MERGE (canonical)-[nr:EXTENDS]->(pair.tgt)
-    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
-)
+WITH canonical, collect({tgt: tgt, evidence: r.evidence}) AS raw
+UNWIND [p IN raw WHERE p.tgt IS NOT NULL] AS pair
+WITH canonical, pair.tgt AS tgt_node, pair.evidence AS ev
+MERGE (canonical)-[nr:EXTENDS]->(tgt_node)
+SET nr.evidence = COALESCE(nr.evidence, ev)
 """,
     # 7. outgoing REPLACES
     """
@@ -210,11 +210,11 @@ MATCH (canonical:Method {name: $canonical})
 MATCH (variant:Method  {name: $variant})
 OPTIONAL MATCH (variant)-[r:REPLACES]->(tgt:Method)
 WHERE tgt.name <> $variant AND tgt.name <> $canonical
-WITH canonical, [p IN collect({tgt: tgt, evidence: r.evidence}) WHERE p.tgt IS NOT NULL] AS pairs
-FOREACH (pair IN pairs |
-    MERGE (canonical)-[nr:REPLACES]->(pair.tgt)
-    SET nr.evidence = COALESCE(nr.evidence, pair.evidence)
-)
+WITH canonical, collect({tgt: tgt, evidence: r.evidence}) AS raw
+UNWIND [p IN raw WHERE p.tgt IS NOT NULL] AS pair
+WITH canonical, pair.tgt AS tgt_node, pair.evidence AS ev
+MERGE (canonical)-[nr:REPLACES]->(tgt_node)
+SET nr.evidence = COALESCE(nr.evidence, ev)
 """,
     # 8. Delete variant. Requires canonical to exist — if canonical is absent the
     #    MATCH fails and the delete is skipped, preventing silent data loss.

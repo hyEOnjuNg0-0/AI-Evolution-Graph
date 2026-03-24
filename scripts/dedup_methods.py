@@ -53,8 +53,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--llm-model",
-        default="gpt-4o-mini",
-        help="OpenAI model used by the normalizer (default: gpt-4o-mini).",
+        default="gpt-4o",
+        help="OpenAI model used by the normalizer (default: gpt-4o).",
     )
     return parser.parse_args()
 

@@ -18,7 +18,8 @@ AiEvoGraph/
 │       │   │   ├── entity_normalizer.py        # EntityNormalizerPort (엔티티 정규화 포트)
 │       │   │   ├── normalization_map_store.py  # NormalizationMapStorePort (정규화 맵 영속성 포트)
 │       │   │   ├── embedding_port.py           # EmbeddingPort (텍스트 임베딩 생성 포트)
-│       │   │   └── vector_repository.py        # VectorRepositoryPort (벡터 인덱스 포트)
+│       │   │   ├── vector_repository.py        # VectorRepositoryPort (벡터 인덱스 포트)
+│       │   │   └── centrality_repository.py    # CentralityRepositoryPort (GDS 중심성 계산 포트)
 │       │   ├── services/
 │       │   │   ├── __init__.py
 │       │   │   ├── citation_graph_service.py   # CitationGraphService (Citation Graph 구축 서비스)
@@ -28,7 +29,8 @@ AiEvoGraph/
 │       │   │   ├── method_deduplication_service.py # MethodDeduplicationService (사후 중복 Method 노드 병합)
 │       │   │   ├── vector_retrieval_service.py # VectorRetrievalService (임베딩 생성·저장·유사도 검색, Layer B Step 3.1)
 │       │   │   ├── graph_retrieval_service.py  # GraphRetrievalService (N-hop citation 확장 검색, Layer B Step 3.2)
-│       │   │   └── hybrid_retrieval_service.py # HybridRetrievalService (α×semantic + β×graph 점수 기반 Subgraph, Layer B Step 3.3)
+│       │   │   ├── hybrid_retrieval_service.py # HybridRetrievalService (α×semantic + β×graph 점수 기반 Subgraph, Layer B Step 3.3)
+│       │   │   └── centrality_ranking_service.py # CentralityRankingService (GDS PageRank+Betweenness 기반 구조적 중요도 랭킹, Layer C Step 4.1)
 │       │   ├── utils/
 │       │   │   ├── __init__.py
 │       │   │   └── paper_filter.py             # 논문 수집 전처리 필터 (연도별 top-N% 인용 수 기준으로 노이즈 제거)
@@ -46,7 +48,8 @@ AiEvoGraph/
 │       │   ├── semantic_scholar_client.py      # Semantic Scholar Bulk API 어댑터
 │       │   ├── llm_method_extractor.py         # LLMMethodExtractor (structured output + gleaning, OpenAI 구현체)
 │       │   ├── llm_entity_normalizer.py        # LLMEntityNormalizer (문자열 유사도 클러스터링 + LLM 판단)
-│       │   └── file_normalization_map_store.py # FileNormalizationMapStore (NormalizationMapStorePort 구현체, data/normalization_map.json)
+│       │   ├── file_normalization_map_store.py # FileNormalizationMapStore (NormalizationMapStorePort 구현체, data/normalization_map.json)
+│       │   └── neo4j_centrality_repository.py  # Neo4jCentralityRepository (CentralityRepositoryPort 구현체, GDS 2.1+)
 │       └── __init__.py
 ├── tests/
 │   ├── integration/
@@ -66,7 +69,8 @@ AiEvoGraph/
 │   ├── test_openai_embedding_client.py         # OpenAIEmbeddingClient 단위 테스트 (OpenAI client mock)
 │   ├── test_vector_retrieval_service.py        # VectorRetrievalService 단위 테스트
 │   ├── test_graph_retrieval_service.py         # GraphRetrievalService 단위 테스트
-│   └── test_hybrid_retrieval_service.py        # HybridRetrievalService 단위 테스트
+│   ├── test_hybrid_retrieval_service.py        # HybridRetrievalService 단위 테스트
+│   └── test_centrality_ranking_service.py      # CentralityRankingService 단위 테스트
 ├── docs/
 │   ├── 00_setup.md
 │   ├── 01_TemporalCitationGraph.md
