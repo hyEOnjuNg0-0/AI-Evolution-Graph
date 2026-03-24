@@ -8,7 +8,7 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-03-24 (Step 4.1 완료)
+> 마지막 업데이트: 2026-03-24 (Step 4.2 완료)
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
@@ -17,7 +17,7 @@
 | 1.x | arXiv 논문 수집 지원 추가 | 🟢 완료 | 100% |
 | 2 | Layer A-2 — Method Evolution Graph | 🟢 완료 | 100% |
 | 3 | Layer B — Retrieval | 🟢 완료 | 100% (Step 3.3 완료) |
-| 4 | Layer C — Ranking | 🟡 진행 중 | 25% (Step 4.1 완료) |
+| 4 | Layer C — Ranking | 🟡 진행 중 | 67% (Step 4.1, 4.2 완료) |
 | 5 | Layer D — Analytical | 🔴 미착수 | 0% |
 | 6 | Layer E — Interface | 🔴 미착수 | 0% |
 | 7 | 통합 및 실험 | 🔴 미착수 | 0% |

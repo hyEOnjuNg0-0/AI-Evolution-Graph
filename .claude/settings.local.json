@@ -10,7 +10,9 @@
       "Bash(grep -r \"expand_from_id\\\\|get_citation_neighborhood\" --include=*.py src/ tests/)",
       "Bash(ls:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(grep -o \"^.\\\\{1,5\\\\}\")",
+      "Bash(python3:*)"
     ]
   }
 }
