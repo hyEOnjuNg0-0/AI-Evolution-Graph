@@ -15,12 +15,12 @@ Usage:
 import argparse
 import asyncio
 import logging
-import sys
 
 from neo4j import GraphDatabase
 from openai import OpenAI
 
 from aievograph.config.settings import TARGET_ARXIV_CATEGORIES, TARGET_VENUES, get_settings
+from aievograph.infrastructure.logging import configure_logging
 from aievograph.domain.services.citation_graph_service import CitationGraphService
 from aievograph.domain.services.entity_normalization_service import EntityNormalizationService
 from aievograph.domain.services.method_extraction_service import MethodExtractionService
@@ -34,11 +34,7 @@ from aievograph.infrastructure.neo4j_vector_repository import Neo4jVectorReposit
 from aievograph.infrastructure.openai_embedding_client import OpenAIEmbeddingClient
 from aievograph.infrastructure.semantic_scholar_client import SemanticScholarClient
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 

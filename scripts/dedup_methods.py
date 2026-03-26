@@ -19,16 +19,13 @@ from neo4j import GraphDatabase
 from openai import OpenAI
 
 from aievograph.config.settings import get_settings
+from aievograph.infrastructure.logging import configure_logging
 from aievograph.domain.models import NormalizationMap
 from aievograph.domain.services.method_deduplication_service import MethodDeduplicationService
 from aievograph.infrastructure.llm_entity_normalizer import LLMEntityNormalizer
 from aievograph.infrastructure.neo4j_graph_repository import Neo4jGraphRepository
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 

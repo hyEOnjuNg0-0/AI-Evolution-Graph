@@ -36,6 +36,7 @@ _BATCH_ENDPOINT = "/paper/batch"
 # fetched via POST /paper/batch after per-page filtering.
 _BULK_FIELDS = "title,year,venue,citationCount,referenceCount,authors"
 _BATCH_FIELDS = "abstract,references"
+_S2_CHUNK_SIZE = 500  # S2 batch API limit per request
 
 
 def _parse_paper(raw: dict[str, Any]) -> Paper | None:
@@ -142,9 +143,8 @@ class SemanticScholarClient(PaperCollectorPort):
             else:
                 uncached.append(pid)
 
-        chunk_size = 500
-        for i in range(0, len(uncached), chunk_size):
-            chunk = uncached[i : i + chunk_size]
+        for i in range(0, len(uncached), _S2_CHUNK_SIZE):
+            chunk = uncached[i : i + _S2_CHUNK_SIZE]
             resp = await request_with_retry(
                 client,
                 "POST",
