@@ -69,7 +69,8 @@ AiEvoGraph/
 
 │       │   │   ├── subgraph_edge_repository.py   # SubgraphEdgeRepositoryPort (subgraph 내 citation edge 조회 포트)
 │       │   │   ├── citation_time_series_repository.py # CitationTimeSeriesRepositoryPort (연도별 citation count 조회 포트, Layer D Step 5.1)
-│       │   │   └── method_trend_repository.py # MethodTrendRepositoryPort (method 연도별 사용량·venue 분포 조회 포트, Layer D Step 5.2)
+│       │   │   ├── method_trend_repository.py # MethodTrendRepositoryPort (method 연도별 사용량·venue 분포 조회 포트, Layer D Step 5.2)
+│       │   │   └── method_evolution_repository.py # MethodEvolutionRepositoryPort (method 관계 엣지·paper→method 매핑 포트, Layer D Step 5.3)
 
 │       │   ├── services/
 
@@ -109,7 +110,8 @@ AiEvoGraph/
 
 │       │   │   ├── combined_ranking_service.py  # CombinedRankingService (centrality+semantic 결합 랜킹 + backbone 추출, Layer C Step 4.3)
 │       │   │   ├── breakthrough_detection_service.py # BreakthroughDetectionService (Kleinberg burst + centrality shift 기반 breakthrough 탐지, Layer D Step 5.1)
-│       │   │   └── trend_momentum_service.py # TrendMomentumService (CAGR + Shannon entropy + adoption velocity 기반 method trend 점수, Layer D Step 5.2)
+│       │   │   ├── trend_momentum_service.py # TrendMomentumService (CAGR + Shannon entropy + adoption velocity 기반 method trend 점수, Layer D Step 5.2)
+│       │   │   └── evolution_path_service.py # EvolutionPathService (Method Evolution Graph 경로 추출 + 분기점 + 영향력 점수, Layer D Step 5.3)
 
 │       │   ├── utils/
 
@@ -175,7 +177,8 @@ AiEvoGraph/
 
 │       │   ├── neo4j_subgraph_edge_repository.py # Neo4jSubgraphEdgeRepository (SubgraphEdgeRepositoryPort 구현체, subgraph 내 citation edge 조회)
 │       │   ├── neo4j_citation_time_series_repository.py # Neo4jCitationTimeSeriesRepository (CitationTimeSeriesRepositoryPort 구현체, 연도별 citation count 조회)
-│       │   └── neo4j_method_trend_repository.py # Neo4jMethodTrendRepository (MethodTrendRepositoryPort 구현체, USES 엣지 집계)
+│       │   ├── neo4j_method_trend_repository.py # Neo4jMethodTrendRepository (MethodTrendRepositoryPort 구현체, USES 엣지 집계)
+│       │   └── neo4j_method_evolution_repository.py # Neo4jMethodEvolutionRepository (MethodEvolutionRepositoryPort 구현체, method 관계·paper-method 매핑)
 
 │       └── __init__.py
 

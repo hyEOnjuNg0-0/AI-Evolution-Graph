@@ -19,21 +19,21 @@
 **입력**: Method Evolution Graph, 최근 n년 파라미터  
 **출력**: Trend score (method별)
 
-* \[ ] Recent citation CAGR 계산
-* \[ ] Diversity entropy 계산 (Shannon entropy)
-* \[ ] Adoption velocity 계산 (diffusion speed)
-* \[ ] Trend score = α × CAGR + β × Entropy + γ × AdoptionVelocity
-* \[ ] 단위 테스트: 각 지표 계산, 종합 점수
+* \[x] Recent citation CAGR 계산
+* \[x] Diversity entropy 계산 (Shannon entropy)
+* \[x] Adoption velocity 계산 (diffusion speed)
+* \[x] Trend score = α × CAGR + β × Entropy + γ × AdoptionVelocity
+* \[x] 단위 테스트: 각 지표 계산, 종합 점수
 
 ### Step 5.3 — Evolution Path 생성
 
 **입력**: Method Evolution Graph, Breakthrough 후보, Trend Score
 **출력**: Evolution path (핵심 경로, 분기 지점, 영향력 점수)
 
-* \[ ] 핵심 경로 추출 알고리즘
-* \[ ] 분기 지점 식별
-* \[ ] 영향력 점수 통합
-* \[ ] 통합 테스트: Layer A 그래프 → 분석 파이프라인 전체
+* \[x] 핵심 경로 추출 알고리즘
+* \[x] 분기 지점 식별
+* \[x] 영향력 점수 통합
+* \[x] 통합 테스트: Layer A 그래프 → 분석 파이프라인 전체
 
 ### Phase 5 산출물
 

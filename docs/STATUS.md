@@ -8,7 +8,7 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-03-26 (Step 5.2 완료)
+> 마지막 업데이트: 2026-03-26 (Step 5.3 완료)
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
@@ -18,7 +18,7 @@
 | 2 | Layer A-2 — Method Evolution Graph | 🟢 완료 | 100% |
 | 3 | Layer B — Retrieval | 🟢 완료 | 100% (Step 3.3 완료) |
 | 4 | Layer C — Ranking | 🟢 완료 | 100% (Step 4.1, 4.2, 4.3 완료) |
-| 5 | Layer D — Analytical | 🟡 진행 중 | 66% (Step 5.1, 5.2 완료) |
+| 5 | Layer D — Analytical | 🟢 완료 | 100% (Step 5.1, 5.2, 5.3 완료) |
 | 6 | Layer E — Interface | 🔴 미착수 | 0% |
 | 7 | 통합 및 실험 | 🔴 미착수 | 0% |
 

@@ -237,3 +237,39 @@ class MethodTrendScore(BaseModel):
     entropy_score: float = Field(default=0.0, ge=0.0, le=1.0)
     adoption_velocity_score: float = Field(default=0.0, ge=0.0, le=1.0)
     trend_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+# EvolutionPath
+#  ├ path              (method names ordered oldest → newest)
+#  ├ relation_types    (edge type for each step, len = len(path) - 1)
+#  ├ branch_points     (methods on this path with out-degree ≥ 2)
+#  ├ influence_scores  (method_name → combined influence score, normalized [0, 1])
+#  └ mean_influence    (mean influence of all methods on this path)
+class EvolutionPath(BaseModel):
+    """A research-lineage path through the Method Evolution Graph (Layer D Step 5.3).
+
+    path: Sequence of method names in research-flow order (oldest method first).
+    relation_types: One relation type string per consecutive pair in path
+                    (IMPROVES, EXTENDS, or REPLACES).
+    branch_points: Subset of path methods where the evolution graph diverges
+                   (out-degree >= 2 in the method subgraph).
+    influence_scores: Per-method combined influence (trend + breakthrough proxy),
+                      max-normalized to [0, 1] across all candidate methods.
+    mean_influence: Mean of influence_scores for methods on this path; used for ranking.
+    """
+
+    path: list[str] = Field(default_factory=list)
+    relation_types: list[str] = Field(default_factory=list)
+    branch_points: list[str] = Field(default_factory=list)
+    influence_scores: dict[str, float] = Field(default_factory=dict)
+    mean_influence: float = Field(default=0.0, ge=0.0)
+
+    @model_validator(mode="after")
+    def _check_relation_types_length(self) -> "EvolutionPath":
+        expected = max(len(self.path) - 1, 0)
+        if len(self.relation_types) != expected:
+            raise ValueError(
+                f"len(relation_types) must equal len(path) - 1 "
+                f"(expected {expected}, got {len(self.relation_types)})"
+            )
+        return self

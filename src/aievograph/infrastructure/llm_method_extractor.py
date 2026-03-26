@@ -127,12 +127,16 @@ class LLMMethodExtractor(MethodExtractorPort):
 
     def extract(self, abstract: str) -> ExtractionResult:
         # Pass 1: initial extraction
-        first = self._call_llm(_EXTRACT_TEMPLATE.format(abstract=abstract))
+        # Use str.replace instead of str.format to prevent KeyError when the
+        # abstract contains curly-brace notation (e.g. LaTeX math, method names).
+        first = self._call_llm(_EXTRACT_TEMPLATE.replace("{abstract}", abstract))
 
         # Pass 2: gleaning — look for missed entities
         method_names = ", ".join(m.name for m in first.methods) or "(none)"
         gleaned = self._call_llm(
-            _GLEAN_TEMPLATE.format(abstract=abstract, method_names=method_names)
+            _GLEAN_TEMPLATE
+            .replace("{abstract}", abstract)
+            .replace("{method_names}", method_names)
         )
 
         merged = _merge(first, gleaned)
