@@ -197,3 +197,22 @@ class RankingResult(BaseModel):
 
     top_papers: list[ScoredPaper] = Field(default_factory=list)
     backbone_paths: list[list[str]] = Field(default_factory=list)
+
+
+# BreakthroughCandidate
+#  ├ paper_id
+#  ├ burst_score         (Kleinberg citation burst intensity, normalized [0, 1])
+#  ├ centrality_shift    (recent vs past citation rate gain, normalized [0, 1])
+#  └ breakthrough_score  (α×burst + (1−α)×shift, normalized [0, 1])
+class BreakthroughCandidate(BaseModel):
+    """Per-paper breakthrough signal produced by Layer D Step 5.1.
+
+    burst_score: Normalized Kleinberg burst intensity across the analysis window.
+    centrality_shift: Normalized citation-rate gain from past half to recent half of window.
+    breakthrough_score: Weighted combination of the two signals.
+    """
+
+    paper_id: str
+    burst_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    centrality_shift: float = Field(default=0.0, ge=0.0, le=1.0)
+    breakthrough_score: float = Field(default=0.0, ge=0.0, le=1.0)
