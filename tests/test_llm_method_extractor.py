@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aievograph.domain.models import ExtractionResult, Method, MethodRelation
-from aievograph.infrastructure.llm_method_extractor import LLMMethodExtractor, _merge
+from aievograph.infrastructure.llm_method_extractor import LLMMethodExtractor, _merge, _sanitize
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +127,40 @@ class TestExtract:
 
         calls = client.beta.chat.completions.parse.call_args_list
         assert all(c.kwargs["model"] == "gpt-4o-mini" for c in calls)
+
+
+# ---------------------------------------------------------------------------
+# Tests: _sanitize helper
+# ---------------------------------------------------------------------------
+
+class TestSanitize:
+    def test_line_separator_replaced_with_space(self) -> None:
+        assert _sanitize("foo\u2028bar") == "foo bar"
+
+    def test_paragraph_separator_replaced_with_space(self) -> None:
+        assert _sanitize("foo\u2029bar") == "foo bar"
+
+    def test_null_byte_removed(self) -> None:
+        assert _sanitize("foo\x00bar") == "foobar"
+
+    def test_clean_text_unchanged(self) -> None:
+        text = "We propose BERT, a bidirectional Transformer model."
+        assert _sanitize(text) == text
+
+    def test_multiple_problematic_chars(self) -> None:
+        assert _sanitize("\x00\u2028\u2029") == "  "
+
+    def test_extract_sanitizes_before_llm(self) -> None:
+        # Abstract with U+2028 must be cleaned before reaching the LLM call.
+        client = _make_client(ExtractionResult(), ExtractionResult())
+        extractor = LLMMethodExtractor(client)
+
+        extractor.extract("intro\u2028body\u2029end\x00.")
+
+        call_content = client.beta.chat.completions.parse.call_args_list[0].kwargs["messages"][1]["content"]
+        assert "\u2028" not in call_content
+        assert "\u2029" not in call_content
+        assert "\x00" not in call_content
 
 
 # ---------------------------------------------------------------------------

@@ -115,6 +115,26 @@ def _merge(first: ExtractionResult, gleaned: ExtractionResult) -> ExtractionResu
 
 
 # ---------------------------------------------------------------------------
+# Sanitization
+# ---------------------------------------------------------------------------
+
+# Characters that break JSON parsers when ensure_ascii=False is used:
+#   U+2028 LINE SEPARATOR, U+2029 PARAGRAPH SEPARATOR → replace with space
+#   U+0000 NULL BYTE → remove entirely
+_SANITIZE_TABLE = str.maketrans({"\u2028": " ", "\u2029": " ", "\x00": ""})
+
+
+def _sanitize(text: str) -> str:
+    """Remove or replace characters that break JSON serialisation.
+
+    Targets characters commonly introduced by PDF extraction that are valid
+    Unicode but illegal inside JSON strings (U+2028, U+2029) or universally
+    problematic (null byte U+0000).
+    """
+    return text.translate(_SANITIZE_TABLE)
+
+
+# ---------------------------------------------------------------------------
 # Extractor
 # ---------------------------------------------------------------------------
 
@@ -126,6 +146,8 @@ class LLMMethodExtractor(MethodExtractorPort):
         self._model = model
 
     def extract(self, abstract: str) -> ExtractionResult:
+        abstract = _sanitize(abstract)
+
         # Pass 1: initial extraction
         # Use str.replace instead of str.format to prevent KeyError when the
         # abstract contains curly-brace notation (e.g. LaTeX math, method names).
