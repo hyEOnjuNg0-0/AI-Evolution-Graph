@@ -6,17 +6,15 @@ Neo4jCentralityRepository  (implements CentralityRepositoryPort)
   compute_centralities(paper_ids)
       → (pagerank: dict[str, float], betweenness: dict[str, float])
 
-GDS projection lifecycle (single call):
-  1. CALL gds.graph.project() [Cypher aggregation, GDS 2.1+] → named in-memory graph
-  2. CALL gds.pageRank.stream($graph_name)   → pagerank scores
-  3. CALL gds.betweenness.stream($graph_name)→ betweenness scores
-  4. CALL gds.graph.drop($graph_name)        → cleanup (always, via finally)
+Pure-Cypher degree approximations (no GDS plugin required):
+  - PageRank proxy  : in-degree within the subgraph (citation count)
+  - Betweenness proxy: in-degree × out-degree within the subgraph
 
-Projection name is UUID-prefixed to prevent conflicts under concurrent calls.
+Works on AuraDB Free and any Neo4j instance without GDS.
+Accuracy is sufficient for small-to-medium citation subgraphs.
 """
 
 import logging
-import uuid
 
 from neo4j import Driver
 
@@ -28,38 +26,27 @@ logger = logging.getLogger(__name__)
 # Cypher queries
 # ---------------------------------------------------------------------------
 
-# Cypher aggregation projection (GDS 2.1+).
-# OPTIONAL MATCH ensures isolated nodes (no CITES edges within the subgraph)
-# are still included; gds.graph.project() handles null `m` gracefully.
-_GRAPH_PROJECT = """
+# in-degree within the subgraph → PageRank proxy
+_IN_DEGREE = """
 MATCH (n:Paper) WHERE n.paper_id IN $paper_ids
-OPTIONAL MATCH (n)-[:CITES]->(m:Paper) WHERE m.paper_id IN $paper_ids
-WITH gds.graph.project($graph_name, n, m,
-     {relationshipType: 'CITES'}) AS g
-RETURN g.graphName AS graphName, g.nodeCount AS nodeCount
+OPTIONAL MATCH (src:Paper)-[:CITES]->(n) WHERE src.paper_id IN $paper_ids
+RETURN n.paper_id AS paper_id, count(src) AS in_deg
 """
 
-_PAGERANK_STREAM = """
-CALL gds.pageRank.stream($graph_name, {maxIterations: 20, dampingFactor: 0.85})
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).paper_id AS paper_id, score
-"""
-
-_BETWEENNESS_STREAM = """
-CALL gds.betweenness.stream($graph_name)
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).paper_id AS paper_id, score
-"""
-
-_GRAPH_DROP = """
-CALL gds.graph.drop($graph_name, false)
-YIELD graphName
-RETURN graphName
+# out-degree within the subgraph → needed for betweenness proxy
+_OUT_DEGREE = """
+MATCH (n:Paper) WHERE n.paper_id IN $paper_ids
+OPTIONAL MATCH (n)-[:CITES]->(dst:Paper) WHERE dst.paper_id IN $paper_ids
+RETURN n.paper_id AS paper_id, count(dst) AS out_deg
 """
 
 
 class Neo4jCentralityRepository(CentralityRepositoryPort):
-    """Compute subgraph-scoped centrality metrics using Neo4j GDS (2.1+)."""
+    """Compute subgraph-scoped centrality metrics using pure Cypher degree counts.
+
+    Replaces the GDS-based implementation so the code works on AuraDB Free
+    and any Neo4j instance that does not have the GDS plugin installed.
+    """
 
     def __init__(self, driver: Driver) -> None:
         self._driver = driver
@@ -67,7 +54,10 @@ class Neo4jCentralityRepository(CentralityRepositoryPort):
     def compute_centralities(
         self, paper_ids: list[str]
     ) -> tuple[dict[str, float], dict[str, float]]:
-        """Run PageRank and Betweenness in a single GDS projection.
+        """Compute PageRank and Betweenness proxies via degree counts.
+
+        PageRank proxy  = in-degree  (number of citations received within subgraph)
+        Betweenness proxy = in-degree × out-degree  (bridge-node heuristic)
 
         Returns:
             (pagerank_scores, betweenness_scores) — both dicts map paper_id → raw score.
@@ -75,40 +65,30 @@ class Neo4jCentralityRepository(CentralityRepositoryPort):
         if not paper_ids:
             return {}, {}
 
-        graph_name = f"centrality_{uuid.uuid4().hex}"
         with self._driver.session() as session:
-            try:
-                record = session.run(
-                    _GRAPH_PROJECT, graph_name=graph_name, paper_ids=paper_ids
-                ).single()
+            in_deg: dict[str, float] = {
+                r["paper_id"]: float(r["in_deg"])
+                for r in session.run(_IN_DEGREE, paper_ids=paper_ids)
+                if r["paper_id"] is not None
+            }
+            out_deg: dict[str, float] = {
+                r["paper_id"]: float(r["out_deg"])
+                for r in session.run(_OUT_DEGREE, paper_ids=paper_ids)
+                if r["paper_id"] is not None
+            }
 
-                node_count = record["nodeCount"] if record else 0
-                logger.debug(
-                    "GDS projection '%s' created: %d nodes", graph_name, node_count
-                )
+        logger.debug(
+            "Degree centrality computed for %d papers (in_deg=%d, out_deg=%d)",
+            len(paper_ids),
+            len(in_deg),
+            len(out_deg),
+        )
 
-                # Empty projection — no edges to rank; skip algorithm queries.
-                if node_count == 0:
-                    return {}, {}
+        pagerank = in_deg
 
-                pagerank = {
-                    r["paper_id"]: r["score"]
-                    for r in session.run(_PAGERANK_STREAM, graph_name=graph_name)
-                    if r["paper_id"] is not None
-                }
-                betweenness = {
-                    r["paper_id"]: r["score"]
-                    for r in session.run(_BETWEENNESS_STREAM, graph_name=graph_name)
-                    if r["paper_id"] is not None
-                }
-                return pagerank, betweenness
+        betweenness: dict[str, float] = {
+            pid: in_deg.get(pid, 0.0) * out_deg.get(pid, 0.0)
+            for pid in paper_ids
+        }
 
-            finally:
-                # Always drop the projection to avoid leaking in-memory graphs.
-                try:
-                    session.run(_GRAPH_DROP, graph_name=graph_name)
-                    logger.debug("GDS projection '%s' dropped", graph_name)
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "Failed to drop GDS projection '%s': %s", graph_name, exc
-                    )
+        return pagerank, betweenness

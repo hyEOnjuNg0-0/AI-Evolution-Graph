@@ -12,7 +12,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(grep -o \"^.\\\\{1,5\\\\}\")",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "WebFetch(domain:neo4j.com)",
+      "WebFetch(domain:community.neo4j.com)"
     ]
   }
 }
