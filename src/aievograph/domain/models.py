@@ -4,7 +4,6 @@ from datetime import datetime
 
 
 
-
 # Author
 #  ├ author_id
 #  └ name
@@ -216,3 +215,25 @@ class BreakthroughCandidate(BaseModel):
     burst_score: float = Field(default=0.0, ge=0.0, le=1.0)
     centrality_shift: float = Field(default=0.0, ge=0.0, le=1.0)
     breakthrough_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+# MethodTrendScore
+#  ├ method_name
+#  ├ cagr_score               (recent citation CAGR, normalized [0, 1])
+#  ├ entropy_score            (Shannon entropy of adopting venues, normalized [0, 1])
+#  ├ adoption_velocity_score  (linear trend slope of usage counts, normalized [0, 1])
+#  └ trend_score              (α×CAGR + β×Entropy + γ×Velocity, normalized [0, 1])
+class MethodTrendScore(BaseModel):
+    """Per-method trend momentum signal produced by Layer D Step 5.2.
+
+    cagr_score: Normalized compound annual growth rate of paper usage over recent window.
+    entropy_score: Normalized Shannon entropy of citing-paper venue diversity.
+    adoption_velocity_score: Normalized linear-regression slope of yearly usage counts.
+    trend_score: Weighted combination of the three signals.
+    """
+
+    method_name: str
+    cagr_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    entropy_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    adoption_velocity_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    trend_score: float = Field(default=0.0, ge=0.0, le=1.0)
