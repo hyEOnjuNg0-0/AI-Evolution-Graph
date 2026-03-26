@@ -121,7 +121,10 @@ AiEvoGraph/
 
 │       │   │   ├── paper_filter.py             # 논문 수집 전처리 필터 (연도별 top-N% 인용 수 기준으로 노이즈 제거)
 
-│       │   │   └── ranking_utils.py            # Layer C 공유 유틸리티 (normalize_scores)
+│       │   │   ├── ranking_utils.py            # 점수 정규화 유틸리티 (normalize_scores)
+│       │   │   ├── score_utils.py              # 점수 결합 유틸리티 (combine_scores: normalize + weighted sum)
+│       │   │   ├── graph_utils.py              # DAG 경로 추출 유틸리티 (extract_dag_paths: exhaustive DFS)
+│       │   │   └── validation_utils.py         # 파라미터 검증 유틸리티 (validate_unit_weights, validate_positive_int)
 
 
 │       │   ├── __init__.py
@@ -178,7 +181,8 @@ AiEvoGraph/
 │       │   ├── neo4j_subgraph_edge_repository.py # Neo4jSubgraphEdgeRepository (SubgraphEdgeRepositoryPort 구현체, subgraph 내 citation edge 조회)
 │       │   ├── neo4j_citation_time_series_repository.py # Neo4jCitationTimeSeriesRepository (CitationTimeSeriesRepositoryPort 구현체, 연도별 citation count 조회)
 │       │   ├── neo4j_method_trend_repository.py # Neo4jMethodTrendRepository (MethodTrendRepositoryPort 구현체, USES 엣지 집계)
-│       │   └── neo4j_method_evolution_repository.py # Neo4jMethodEvolutionRepository (MethodEvolutionRepositoryPort 구현체, method 관계·paper-method 매핑)
+│       │   ├── neo4j_method_evolution_repository.py # Neo4jMethodEvolutionRepository (MethodEvolutionRepositoryPort 구현체, method 관계·paper-method 매핑)
+│       │   └── neo4j_utils.py              # Neo4j 공유 쿼리 유틸리티 (run_grouped_query: nested dict 누적 패턴)
 
 │       └── __init__.py
 

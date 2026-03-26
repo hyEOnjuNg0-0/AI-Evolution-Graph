@@ -17,6 +17,7 @@ import logging
 from neo4j import Driver
 
 from aievograph.domain.ports.method_trend_repository import MethodTrendRepositoryPort
+from aievograph.infrastructure.neo4j_utils import run_grouped_query
 
 logger = logging.getLogger(__name__)
 
@@ -64,20 +65,14 @@ class Neo4jMethodTrendRepository(MethodTrendRepositoryPort):
         if not method_names:
             return {}
 
-        result: dict[str, dict[int, int]] = {}
-        with self._driver.session() as session:
-            for r in session.run(
-                _YEARLY_USAGE,
-                method_names=method_names,
-                year_start=year_start,
-                year_end=year_end,
-            ):
-                name = r["method_name"]
-                year = int(r["year"])
-                cnt = int(r["cnt"])
-                if name not in result:
-                    result[name] = {}
-                result[name][year] = cnt
+        result: dict[str, dict[int, int]] = run_grouped_query(
+            self._driver,
+            _YEARLY_USAGE,
+            {"method_names": method_names, "year_start": year_start, "year_end": year_end},
+            group_key="method_name",
+            sub_key="year",
+            sub_key_cast=int,
+        )
 
         logger.debug(
             "Yearly usage fetched: %d/%d methods have data in %d–%d",
@@ -102,20 +97,13 @@ class Neo4jMethodTrendRepository(MethodTrendRepositoryPort):
         if not method_names:
             return {}
 
-        result: dict[str, dict[str, int]] = {}
-        with self._driver.session() as session:
-            for r in session.run(
-                _VENUE_DISTRIBUTION,
-                method_names=method_names,
-                year_start=year_start,
-                year_end=year_end,
-            ):
-                name = r["method_name"]
-                venue = r["venue"]
-                cnt = int(r["cnt"])
-                if name not in result:
-                    result[name] = {}
-                result[name][venue] = cnt
+        result: dict[str, dict[str, int]] = run_grouped_query(
+            self._driver,
+            _VENUE_DISTRIBUTION,
+            {"method_names": method_names, "year_start": year_start, "year_end": year_end},
+            group_key="method_name",
+            sub_key="venue",
+        )
 
         logger.debug(
             "Venue distribution fetched: %d/%d methods have venue data in %d–%d",

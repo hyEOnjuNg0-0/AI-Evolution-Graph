@@ -32,6 +32,7 @@ from aievograph.domain.ports.citation_time_series_repository import (
     CitationTimeSeriesRepositoryPort,
 )
 from aievograph.domain.utils.ranking_utils import normalize_scores
+from aievograph.domain.utils.validation_utils import validate_positive_int, validate_unit_weights
 
 logger = logging.getLogger(__name__)
 
@@ -240,14 +241,12 @@ class BreakthroughDetectionService:
                         year_end < year_start, or the repository returns a negative
                         citation count (indicates upstream data corruption).
         """
-        if not (0.0 <= alpha <= 1.0):
-            raise ValueError(f"alpha must be in [0.0, 1.0], got {alpha}")
+        validate_unit_weights(alpha=alpha)
         if s <= 1.0:
             raise ValueError(f"s (burst multiplier) must be > 1, got {s}")
         if gamma <= 0.0:
             raise ValueError(f"gamma must be > 0, got {gamma}")
-        if top_k < 1:
-            raise ValueError(f"top_k must be >= 1, got {top_k}")
+        validate_positive_int("top_k", top_k)
         if year_end < year_start:
             raise ValueError(f"year_end ({year_end}) must be >= year_start ({year_start})")
         if not paper_ids:

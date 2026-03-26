@@ -17,7 +17,8 @@
       "WebFetch(domain:community.neo4j.com)",
       "Bash(find /c/AiEvoGraph/tests -name *breakthrough* -o -name *burst* -o -name *analytical*)",
       "Bash(find /c/AiEvoGraph -name *breakthrough* -o -name *analytical*)",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(find /c/AiEvoGraph/tests -name *ranking* -o -name *breakthrough* -o -name *trend* -o -name *evolution*)"
     ]
   }
 }

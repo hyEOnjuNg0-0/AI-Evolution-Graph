@@ -44,6 +44,7 @@ import math
 from aievograph.domain.models import MethodTrendScore
 from aievograph.domain.ports.method_trend_repository import MethodTrendRepositoryPort
 from aievograph.domain.utils.ranking_utils import normalize_scores
+from aievograph.domain.utils.score_utils import combine_scores
 
 logger = logging.getLogger(__name__)
 
@@ -304,15 +305,11 @@ class TrendMomentumService:
         norm_velocity = normalize_scores(raw_velocity)
 
         # [4] Combine into trend_score; normalize once more so the weighted sum is in [0, 1].
-        raw_trend: dict[str, float] = {
-            name: (
-                alpha * norm_cagr.get(name, 0.0)
-                + beta * norm_entropy.get(name, 0.0)
-                + gamma_coef * norm_velocity.get(name, 0.0)
-            )
-            for name in method_names
-        }
-        norm_trend = normalize_scores(raw_trend)
+        norm_trend = combine_scores(
+            {"cagr": norm_cagr, "entropy": norm_entropy, "velocity": norm_velocity},
+            {"cagr": alpha, "entropy": beta, "velocity": gamma_coef},
+            normalize_output=True,
+        )
 
         # [5] Build result objects, sort, return top_k.
         results = [

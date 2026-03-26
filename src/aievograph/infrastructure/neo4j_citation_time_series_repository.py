@@ -17,6 +17,7 @@ from neo4j import Driver
 from aievograph.domain.ports.citation_time_series_repository import (
     CitationTimeSeriesRepositoryPort,
 )
+from aievograph.infrastructure.neo4j_utils import run_grouped_query
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +54,14 @@ class Neo4jCitationTimeSeriesRepository(CitationTimeSeriesRepositoryPort):
         if not paper_ids:
             return {}
 
-        result: dict[str, dict[int, int]] = {}
-        with self._driver.session() as session:
-            records = session.run(
-                _YEARLY_CITATION_COUNTS,
-                paper_ids=paper_ids,
-                year_start=year_start,
-                year_end=year_end,
-            )
-            for r in records:
-                pid = r["paper_id"]
-                year = int(r["year"])
-                cnt = int(r["cnt"])
-                if pid not in result:
-                    result[pid] = {}
-                result[pid][year] = cnt
+        result: dict[str, dict[int, int]] = run_grouped_query(
+            self._driver,
+            _YEARLY_CITATION_COUNTS,
+            {"paper_ids": paper_ids, "year_start": year_start, "year_end": year_end},
+            group_key="paper_id",
+            sub_key="year",
+            sub_key_cast=int,
+        )
 
         logger.debug(
             "Citation time series fetched: %d/%d papers have data in %d–%d",

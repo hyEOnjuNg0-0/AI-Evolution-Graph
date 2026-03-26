@@ -34,6 +34,8 @@ from aievograph.domain.models import (
 )
 from aievograph.domain.ports.method_evolution_repository import MethodEvolutionRepositoryPort
 from aievograph.domain.utils.ranking_utils import normalize_scores
+from aievograph.domain.utils.score_utils import combine_scores
+from aievograph.domain.utils.validation_utils import validate_positive_int, validate_unit_weights
 
 logger = logging.getLogger(__name__)
 
@@ -96,14 +98,13 @@ def _compute_influence_scores(
     Returns:
         Max-normalized influence scores in [0, 1].
     """
-    # Normalize breakthrough proxy independently before blending.
-    norm_proxy = normalize_scores(breakthrough_proxy)
-
-    raw: dict[str, float] = {
-        m: alpha * trend_map.get(m, 0.0) + (1.0 - alpha) * norm_proxy.get(m, 0.0)
-        for m in method_names
-    }
-    return normalize_scores(raw)
+    # Normalize each signal independently, then blend; output is re-normalized to [0, 1].
+    return combine_scores(
+        {"trend": {m: trend_map.get(m, 0.0) for m in method_names},
+         "proxy": {m: breakthrough_proxy.get(m, 0.0) for m in method_names}},
+        {"trend": alpha, "proxy": 1.0 - alpha},
+        normalize_output=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -209,10 +210,8 @@ class EvolutionPathService:
         Raises:
             ValueError: If top_k < 1 or alpha outside [0.0, 1.0].
         """
-        if top_k < 1:
-            raise ValueError(f"top_k must be >= 1, got {top_k}")
-        if not (0.0 <= alpha <= 1.0):
-            raise ValueError(f"alpha must be in [0.0, 1.0], got {alpha}")
+        validate_positive_int("top_k", top_k)
+        validate_unit_weights(alpha=alpha)
         if not method_names:
             return []
 

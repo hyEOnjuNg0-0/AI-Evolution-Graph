@@ -24,6 +24,7 @@ from aievograph.domain.models import RankingResult, ScoredPaper, Subgraph
 from aievograph.domain.ports.subgraph_edge_repository import SubgraphEdgeRepositoryPort
 from aievograph.domain.services.centrality_ranking_service import CentralityRankingService
 from aievograph.domain.services.embedding_ranking_service import EmbeddingRankingService
+from aievograph.domain.utils.graph_utils import extract_dag_paths
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +38,10 @@ def _extract_backbone_paths(
     edges: list[tuple[str, str]],
     scores: dict[str, float],
 ) -> list[list[str]]:
-    """Extract maximal research-lineage paths from the citation DAG.
+    """Extract backbone paths from citation DAG (oldest → newest = research flow).
 
-    Direction: cited → citing (oldest paper first = research flow direction).
-    Cycle-safe: visited set is tracked per DFS traversal.
-    Only paths of length >= _MIN_BACKBONE_LENGTH are kept.
-    Result is sorted by mean combined score descending.
+    Thin wrapper around extract_dag_paths that converts citation edges
+    (citing, cited) to research-flow direction (cited → citing) before extraction.
 
     Args:
         paper_ids: IDs of papers that form the subgraph nodes.
@@ -52,48 +51,12 @@ def _extract_backbone_paths(
     Returns:
         List of paper_id paths, each ordered oldest → newest.
     """
-    # Build "research flow" adjacency: cited → citing (old → new).
-    successors: dict[str, list[str]] = {pid: [] for pid in paper_ids}
-    predecessors: dict[str, set[str]] = {pid: set() for pid in paper_ids}
-
-    for citing, cited in edges:
-        if citing in paper_ids and cited in paper_ids and citing != cited:
-            successors[cited].append(citing)
-            predecessors[citing].add(cited)
-
-    # Prefer high-scoring successors first (greedy DFS order).
-    for pid in successors:
-        successors[pid].sort(key=lambda x: -scores.get(x, 0.0))
-
-    # Source nodes have no predecessors in this subgraph (oldest papers).
-    # Sort deterministically so that equal-score paths always appear in the same order.
-    sources = sorted(pid for pid in paper_ids if not predecessors[pid])
-
-    paths: list[list[str]] = []
-
-    def _dfs(node: str, path: list[str], visited: set[str]) -> None:
-        next_nodes = [s for s in successors[node] if s not in visited]
-        if not next_nodes:
-            # Leaf node — record path if long enough.
-            if len(path) >= _MIN_BACKBONE_LENGTH:
-                paths.append(list(path))
-            return
-        for nxt in next_nodes:
-            path.append(nxt)
-            visited.add(nxt)
-            _dfs(nxt, path, visited)
-            path.pop()
-            visited.discard(nxt)
-
-    for src in sources:
-        _dfs(src, [src], {src})
-
-    # Sort by mean score descending; use path itself as lexicographic tiebreaker
-    # so equal-score paths always appear in a deterministic order.
-    paths.sort(
-        key=lambda p: (-(sum(scores.get(pid, 0.0) for pid in p) / len(p)), p)
+    return extract_dag_paths(
+        node_ids=paper_ids,
+        edges=[(cited, citing) for citing, cited in edges],
+        scores=scores,
+        min_path_length=_MIN_BACKBONE_LENGTH,
     )
-    return paths
 
 
 class CombinedRankingService:
