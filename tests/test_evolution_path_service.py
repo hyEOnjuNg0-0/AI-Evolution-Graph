@@ -4,7 +4,7 @@ Covers:
   - _compute_breakthrough_proxy
   - _compute_influence_scores
   - _build_adjacency
-  - _dfs_paths
+  - _dfs_paths (greedy best-first)
   - EvolutionPath model validator (C3)
   - normalize_scores negative-value warning (H2)
   - EvolutionPathService.extract():
@@ -216,12 +216,12 @@ class TestDfsPaths:
         assert paths[0][0] == ["A", "B", "C"]
         assert paths[0][1] == ["IMPROVES", "EXTENDS"]
 
-    def test_branching_produces_two_paths(self):
+    def test_branching_follows_greedy_best(self):
+        # Greedy: only follows the highest-influence successor (B > C), so one path.
         succ = {"A": [("B", "IMPROVES"), ("C", "EXTENDS")], "B": [], "C": []}
         paths = _dfs_paths("A", succ, {"A": 1.0, "B": 0.8, "C": 0.6})
-        path_nodes = [p[0] for p in paths]
-        assert ["A", "B"] in path_nodes
-        assert ["A", "C"] in path_nodes
+        assert len(paths) == 1
+        assert paths[0][0] == ["A", "B"]
 
     def test_cycle_safe_visited_prevents_infinite_loop(self):
         # A→B, B has A as successor (would cause cycle if not guarded)

@@ -15,7 +15,7 @@ Pipeline:
   [4] MethodEvolutionRepositoryPort.get_relations(method_names)
       → (source, target, relation_type) edges  (source IMPROVES/EXTENDS/REPLACES target)
   [5] Build research-flow adjacency: target → source  (old → new)
-  [6] DFS from source nodes (no predecessors) → extract all maximal paths (len ≥ 2)
+  [6] Greedy best-first from source nodes (no predecessors) → one path per source (len ≥ 2)
   [7] Identify branch points: methods with ≥ 2 successors in the subgraph
   [8] Score paths by mean influence; sort descending; return top_k
 
@@ -140,37 +140,37 @@ def _dfs_paths(
     successors: dict[str, list[tuple[str, str]]],
     influence_scores: dict[str, float],
 ) -> list[tuple[list[str], list[str]]]:
-    """Enumerate all maximal paths starting from source via DFS.
+    """Extract a single greedy best path starting from source.
 
-    Successors are visited in descending influence-score order (greedy).
-    Cycle-safe: visited set is tracked per traversal.
+    At each node, follow the highest-influence-score successor only.
+    No backtracking → O(N) per call, cycle-safe via visited set.
 
     Returns:
-        List of (path, relation_types) pairs; each path has length >= 1.
-        Paths shorter than _MIN_PATH_LENGTH are filtered by the caller.
+        Single-element list containing (path, relation_types);
+        path has length >= 1.  Paths shorter than _MIN_PATH_LENGTH are
+        filtered by the caller.
     """
-    results: list[tuple[list[str], list[str]]] = []
-
-    # Sort successors by influence score descending for greedy traversal order.
+    # Sort successors by influence score descending (greedy order).
     for node in successors:
         successors[node].sort(key=lambda x: -influence_scores.get(x[0], 0.0))
 
-    def _dfs(node: str, path: list[str], rels: list[str], visited: set[str]) -> None:
+    path: list[str] = [source]
+    rels: list[str] = []
+    visited: set[str] = {source}
+
+    node = source
+    while True:
+        # Pick only the best unvisited successor; stop if none.
         next_nodes = [(s, r) for s, r in successors[node] if s not in visited]
         if not next_nodes:
-            results.append((list(path), list(rels)))
-            return
-        for nxt, rel in next_nodes:
-            path.append(nxt)
-            rels.append(rel)
-            visited.add(nxt)
-            _dfs(nxt, path, rels, visited)
-            path.pop()
-            rels.pop()
-            visited.discard(nxt)
+            break
+        nxt, rel = next_nodes[0]
+        path.append(nxt)
+        rels.append(rel)
+        visited.add(nxt)
+        node = nxt
 
-    _dfs(source, [source], [], {source})
-    return results
+    return [(path, rels)]
 
 
 # ---------------------------------------------------------------------------
