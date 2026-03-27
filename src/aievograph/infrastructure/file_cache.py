@@ -2,8 +2,28 @@
 
 import hashlib
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+
+def build_cache_key(*parts: str) -> str:
+    """Return a SHA-256 hex digest built from colon-joined parts.
+
+    Provides a deterministic, filesystem-safe cache key for any number of
+    string components (e.g. category, year range, pagination token).
+    """
+    return hashlib.sha256(":".join(parts).encode()).hexdigest()
+
+
+def chunk_items(items: list[Any], size: int) -> Iterator[list[Any]]:
+    """Yield successive non-overlapping sublists of `size` from `items`.
+
+    The last chunk may be shorter than `size` when len(items) is not a
+    multiple of `size`.
+    """
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
 
 
 def read_json(cache_dir: Path, key: str) -> Any | None:

@@ -14,7 +14,6 @@ Return Paper objects with referenced_work_ids populated
 """
 
 import asyncio
-import hashlib
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -28,7 +27,9 @@ from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
 from aievograph.domain.utils.paper_filter import filter_top_cited
 from aievograph.infrastructure.file_cache import (
+    build_cache_key,
     checkpoint_path,
+    chunk_items,
     load_checkpoint,
     read_json,
     save_checkpoint,
@@ -131,9 +132,6 @@ class ArxivClient(PaperCollectorPort):
             headers["x-api-key"] = self._s2_api_key
         return headers
 
-    def _cache_key(self, *parts: str) -> str:
-        return hashlib.sha256(":".join(parts).encode()).hexdigest()
-
     async def _fetch_arxiv_page(
         self,
         client: httpx.AsyncClient,
@@ -143,7 +141,7 @@ class ArxivClient(PaperCollectorPort):
         start: int,
     ) -> list[dict[str, Any]]:
         """Fetch one paginated page of arXiv entries for a category and year range."""
-        key = self._cache_key("page", category, f"{year_start}-{year_end}", str(start))
+        key = build_cache_key("page", category, f"{year_start}-{year_end}", str(start))
         cached = read_json(self._cache_dir, key)
         if cached is not None:
             logger.debug("Cache hit: arXiv category=%s start=%d", category, start)
@@ -186,8 +184,7 @@ class ArxivClient(PaperCollectorPort):
             else:
                 uncached.append(arxiv_id)
 
-        for i in range(0, len(uncached), _S2_CHUNK_SIZE):
-            chunk = uncached[i : i + _S2_CHUNK_SIZE]
+        for chunk in chunk_items(uncached, _S2_CHUNK_SIZE):
             s2_ids = [f"ArXiv:{aid}" for aid in chunk]
 
             resp = await request_with_retry(
@@ -242,8 +239,7 @@ class ArxivClient(PaperCollectorPort):
             else:
                 uncached.append(pid)
 
-        for i in range(0, len(uncached), _S2_CHUNK_SIZE):
-            chunk = uncached[i : i + _S2_CHUNK_SIZE]
+        for chunk in chunk_items(uncached, _S2_CHUNK_SIZE):
             resp = await request_with_retry(
                 client,
                 "POST",

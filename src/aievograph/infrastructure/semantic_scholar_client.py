@@ -8,7 +8,6 @@ Bulk search (metadata) → per-page filter → references endpoint
 Return top-cited Paper objects with referenced_work_ids populated
 """
 
-import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,9 @@ from aievograph.domain.models import Author, Paper
 from aievograph.domain.ports.paper_collector import PaperCollectorPort
 from aievograph.domain.utils.paper_filter import filter_top_cited
 from aievograph.infrastructure.file_cache import (
+    build_cache_key,
     checkpoint_path,
+    chunk_items,
     load_checkpoint,
     read_json,
     save_checkpoint,
@@ -69,11 +70,6 @@ def _parse_paper(raw: dict[str, Any]) -> Paper | None:
     )
 
 
-def _build_cache_key(venue: str, year_range: str, token: str) -> str:
-    raw = f"{venue}:{year_range}:{token}"
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
 class SemanticScholarClient(PaperCollectorPort):
     """Infrastructure adapter that fetches papers from the Semantic Scholar Bulk API."""
 
@@ -97,7 +93,7 @@ class SemanticScholarClient(PaperCollectorPort):
         year_range: str,
         token: str,
     ) -> dict[str, Any]:
-        cache_key = _build_cache_key(venue, year_range, token)
+        cache_key = build_cache_key(venue, year_range, token)
         cached = read_json(self._cache_dir, cache_key)
         if cached is not None:
             logger.debug("Cache hit: venue=%s token=%s", venue, token[:12])
@@ -143,8 +139,7 @@ class SemanticScholarClient(PaperCollectorPort):
             else:
                 uncached.append(pid)
 
-        for i in range(0, len(uncached), _S2_CHUNK_SIZE):
-            chunk = uncached[i : i + _S2_CHUNK_SIZE]
+        for chunk in chunk_items(uncached, _S2_CHUNK_SIZE):
             resp = await request_with_retry(
                 client,
                 "POST",

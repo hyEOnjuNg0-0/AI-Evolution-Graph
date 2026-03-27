@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from aievograph.infrastructure.file_cache import build_cache_key
 from aievograph.infrastructure.semantic_scholar_client import (
     SemanticScholarClient,
-    _build_cache_key,
     _parse_paper,
 )
 
@@ -307,7 +307,7 @@ class TestSemanticScholarClientCollect:
         cache_dir.mkdir()
 
         cached_data = {"total": 1, "data": [_make_raw_paper(paper_id="P_CACHED")]}
-        key = _build_cache_key("NeurIPS", "2020-2023", "")
+        key = build_cache_key("NeurIPS", "2020-2023", "")
         (cache_dir / f"{key}.json").write_text(json.dumps(cached_data))
 
         bulk_get_calls = 0

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from aievograph.domain.models import Method, NormalizationMap
 from aievograph.domain.ports.entity_normalizer import EntityNormalizerPort
+from aievograph.infrastructure.file_cache import chunk_items
 
 logger = logging.getLogger(__name__)
 
@@ -201,15 +202,16 @@ class LLMEntityNormalizer(EntityNormalizerPort):
     def _llm_normalize(self, clusters: list[list[str]]) -> NormalizationMap:
         mapping: dict[str, str] = {}
         total = len(clusters)
-        for batch_start in range(0, total, self._BATCH_SIZE):
-            batch = clusters[batch_start : batch_start + self._BATCH_SIZE]
-            batch_end = min(batch_start + self._BATCH_SIZE, total)
+        processed = 0
+        for batch in chunk_items(clusters, self._BATCH_SIZE):
+            batch_end = min(processed + len(batch), total)
             logger.info(
                 "LLM normalization batch %d-%d / %d clusters.",
-                batch_start + 1, batch_end, total,
+                processed + 1, batch_end, total,
             )
             partial = self._llm_normalize_batch(batch)
             mapping.update(partial)
+            processed += len(batch)
 
         logger.debug("Built normalization mapping with %d entries.", len(mapping))
         return NormalizationMap(mapping=mapping)
