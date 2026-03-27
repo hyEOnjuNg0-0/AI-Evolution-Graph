@@ -13,13 +13,17 @@ from aievograph.domain.ports.entity_normalizer import EntityNormalizerPort
 logger = logging.getLogger(__name__)
 
 
-def _apply_map(
-    result: ExtractionResult, norm_map: NormalizationMap
-) -> ExtractionResult:
-    """Return a new ExtractionResult with all method names replaced by canonical forms."""
-    # Normalize methods, keeping one entry per canonical name (first occurrence wins)
+def _normalize_methods(
+    methods: list[Method], norm_map: NormalizationMap
+) -> list[Method]:
+    """Replace each method's name with its canonical form.
+
+    Keeps the first occurrence per canonical name; later duplicates are discarded.
+    If the canonical name equals the original, the Method object is reused as-is
+    to avoid unnecessary allocation.
+    """
     canonical_methods: dict[str, Method] = {}
-    for method in result.methods:
+    for method in methods:
         canonical = norm_map.normalize(method.name)
         if canonical not in canonical_methods:
             canonical_methods[canonical] = (
@@ -31,11 +35,20 @@ def _apply_map(
                     description=method.description,
                 )
             )
+    return list(canonical_methods.values())
 
-    # Normalize relation endpoints and deduplicate
+
+def _normalize_relations(
+    relations: list[MethodRelation], norm_map: NormalizationMap
+) -> list[MethodRelation]:
+    """Replace source/target method names with canonical forms and deduplicate.
+
+    Two relations are considered duplicates when (canonical_src, canonical_tgt,
+    relation_type) is identical; the first occurrence is kept.
+    """
     seen: set[tuple[str, str, str]] = set()
     normalized_relations: list[MethodRelation] = []
-    for rel in result.relations:
+    for rel in relations:
         src = norm_map.normalize(rel.source_method)
         tgt = norm_map.normalize(rel.target_method)
         key = (src, tgt, rel.relation_type)
@@ -49,10 +62,19 @@ def _apply_map(
                     evidence=rel.evidence,
                 )
             )
+    return normalized_relations
 
+
+def _apply_map(
+    result: ExtractionResult, norm_map: NormalizationMap
+) -> ExtractionResult:
+    """Return a new ExtractionResult with all method names replaced by canonical forms.
+
+    Thin wrapper that delegates to _normalize_methods and _normalize_relations.
+    """
     return ExtractionResult(
-        methods=list(canonical_methods.values()),
-        relations=normalized_relations,
+        methods=_normalize_methods(result.methods, norm_map),
+        relations=_normalize_relations(result.relations, norm_map),
     )
 
 

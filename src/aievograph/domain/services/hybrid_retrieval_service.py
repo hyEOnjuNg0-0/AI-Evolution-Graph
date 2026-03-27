@@ -24,7 +24,7 @@ from aievograph.domain.ports.graph_repository import GraphRepositoryPort
 from aievograph.domain.services.graph_retrieval_service import _MAX_HOPS
 from aievograph.domain.services.vector_retrieval_service import VectorRetrievalService
 from aievograph.domain.utils.ranking_utils import sort_scored_papers
-from aievograph.domain.utils.validation_utils import validate_non_empty_str
+from aievograph.domain.utils.validation_utils import validate_non_empty_str, validate_unit_weights
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +103,7 @@ class HybridRetrievalService:
 
         # Validate resolved weights (C-1: negative → invalid ScoredPaper score;
         # C-2: >1.0 each → score exceeds [0, 1] range; C-3: both 0 → unrankable).
-        if not (0.0 <= a <= 1.0):
-            raise ValueError(f"alpha must be in [0.0, 1.0], got {a}")
-        if not (0.0 <= b <= 1.0):
-            raise ValueError(f"beta must be in [0.0, 1.0], got {b}")
+        validate_unit_weights(alpha=a, beta=b)
         if a + b == 0.0:
             raise ValueError("alpha + beta must be > 0; all-zero weights produce unrankable scores")
 

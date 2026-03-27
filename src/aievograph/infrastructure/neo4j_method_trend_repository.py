@@ -17,6 +17,7 @@ import logging
 from neo4j import Driver
 
 from aievograph.domain.ports.method_trend_repository import MethodTrendRepositoryPort
+from aievograph.domain.utils.validation_utils import validate_year_range
 from aievograph.infrastructure.neo4j_utils import run_grouped_query
 
 logger = logging.getLogger(__name__)
@@ -58,10 +59,7 @@ class Neo4jMethodTrendRepository(MethodTrendRepositoryPort):
         year_end: int,
     ) -> dict[str, dict[int, int]]:
         """Return {method_name: {year: count}} for paper usages within the window."""
-        if year_end < year_start:
-            raise ValueError(
-                f"year_end ({year_end}) must be >= year_start ({year_start})"
-            )
+        validate_year_range(year_start, year_end)
         if not method_names:
             return {}
 
@@ -90,10 +88,7 @@ class Neo4jMethodTrendRepository(MethodTrendRepositoryPort):
         year_end: int,
     ) -> dict[str, dict[str, int]]:
         """Return {method_name: {venue: count}} for paper usages within the window."""
-        if year_end < year_start:
-            raise ValueError(
-                f"year_end ({year_end}) must be >= year_start ({year_start})"
-            )
+        validate_year_range(year_start, year_end)
         if not method_names:
             return {}
 

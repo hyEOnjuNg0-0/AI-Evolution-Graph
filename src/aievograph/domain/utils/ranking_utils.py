@@ -4,9 +4,18 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aievograph.domain.models import ScoredPaper
+    from aievograph.domain.models import Paper, ScoredPaper, Subgraph
 
 logger = logging.getLogger(__name__)
+
+
+def build_papers_map(subgraph: "Subgraph") -> "dict[str, Paper]":
+    """Build a {paper_id: Paper} lookup map from a Subgraph's scored papers.
+
+    Used by ranking services to resolve paper_id references back to Paper objects
+    when constructing ScoredPaper results.
+    """
+    return {sp.paper.paper_id: sp.paper for sp in subgraph.papers}
 
 
 def sort_scored_papers(papers: "list[ScoredPaper]") -> "list[ScoredPaper]":

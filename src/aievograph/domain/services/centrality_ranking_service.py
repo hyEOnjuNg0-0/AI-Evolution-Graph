@@ -20,7 +20,8 @@ import logging
 
 from aievograph.domain.models import CentralityScores, ScoredPaper, Subgraph
 from aievograph.domain.ports.centrality_repository import CentralityRepositoryPort
-from aievograph.domain.utils.ranking_utils import normalize_scores
+from aievograph.domain.utils.ranking_utils import build_papers_map, normalize_scores
+from aievograph.domain.utils.validation_utils import validate_unit_weights
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class CentralityRankingService:
             ValueError: If gamma is outside [0.0, 1.0].
         """
         scores = self._compute_scores(subgraph, gamma)
-        papers_map = {sp.paper.paper_id: sp.paper for sp in subgraph.papers}
+        papers_map = build_papers_map(subgraph)
         result = [
             ScoredPaper(paper=papers_map[c.paper_id], score=c.combined_score)
             for c in scores
@@ -110,8 +111,7 @@ class CentralityRankingService:
 
         Returns CentralityScores sorted by combined_score descending.
         """
-        if not (0.0 <= gamma <= 1.0):
-            raise ValueError(f"gamma must be in [0.0, 1.0], got {gamma}")
+        validate_unit_weights(gamma=gamma)
         if not subgraph.papers:
             return []
 

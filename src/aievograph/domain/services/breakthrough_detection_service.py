@@ -32,7 +32,11 @@ from aievograph.domain.ports.citation_time_series_repository import (
     CitationTimeSeriesRepositoryPort,
 )
 from aievograph.domain.utils.ranking_utils import normalize_scores
-from aievograph.domain.utils.validation_utils import validate_positive_int, validate_unit_weights
+from aievograph.domain.utils.validation_utils import (
+    validate_positive_int,
+    validate_unit_weights,
+    validate_year_range,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -250,8 +254,7 @@ class BreakthroughDetectionService:
         if gamma <= 0.0:
             raise ValueError(f"gamma must be > 0, got {gamma}")
         validate_positive_int("top_k", top_k)
-        if year_end < year_start:
-            raise ValueError(f"year_end ({year_end}) must be >= year_start ({year_start})")
+        validate_year_range(year_start, year_end)
         if not paper_ids:
             return []
 

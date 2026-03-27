@@ -29,6 +29,22 @@ def validate_positive_int(name: str, value: int) -> None:
         raise ValueError(f"{name} must be >= 1, got {value}")
 
 
+def validate_year_range(year_start: int, year_end: int) -> None:
+    """Validate that year_end is not before year_start.
+
+    Args:
+        year_start: First year of the analysis window (inclusive).
+        year_end: Last year of the analysis window (inclusive).
+
+    Raises:
+        ValueError: If year_end < year_start.
+    """
+    if year_end < year_start:
+        raise ValueError(
+            f"year_end ({year_end}) must be >= year_start ({year_start})"
+        )
+
+
 def validate_non_empty_str(name: str, value: str) -> None:
     """Validate that a string parameter is not blank after stripping whitespace.
 

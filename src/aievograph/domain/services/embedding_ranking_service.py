@@ -21,7 +21,7 @@ import math
 from aievograph.domain.models import ScoredPaper, Subgraph
 from aievograph.domain.ports.embedding_port import EmbeddingPort
 from aievograph.domain.ports.paper_embedding_repository import PaperEmbeddingRepositoryPort
-from aievograph.domain.utils.ranking_utils import normalize_scores, sort_scored_papers
+from aievograph.domain.utils.ranking_utils import build_papers_map, normalize_scores, sort_scored_papers
 from aievograph.domain.utils.validation_utils import validate_non_empty_str
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class EmbeddingRankingService:
 
         normalized = _normalize(raw_scores)
 
-        papers_map = {sp.paper.paper_id: sp.paper for sp in subgraph.papers}
+        papers_map = build_papers_map(subgraph)
         result = [
             ScoredPaper(paper=papers_map[pid], score=normalized[pid])
             for pid in paper_ids

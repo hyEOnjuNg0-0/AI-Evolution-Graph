@@ -25,7 +25,8 @@ from aievograph.domain.ports.subgraph_edge_repository import SubgraphEdgeReposit
 from aievograph.domain.services.centrality_ranking_service import CentralityRankingService
 from aievograph.domain.services.embedding_ranking_service import EmbeddingRankingService
 from aievograph.domain.utils.graph_utils import extract_dag_paths
-from aievograph.domain.utils.ranking_utils import sort_scored_papers
+from aievograph.domain.utils.ranking_utils import build_papers_map, sort_scored_papers
+from aievograph.domain.utils.validation_utils import validate_positive_int, validate_unit_weights
 
 logger = logging.getLogger(__name__)
 
@@ -95,10 +96,8 @@ class CombinedRankingService:
         Raises:
             ValueError: If alpha is outside [0.0, 1.0] or top_k < 1.
         """
-        if not (0.0 <= alpha <= 1.0):
-            raise ValueError(f"alpha must be in [0.0, 1.0], got {alpha}")
-        if top_k < 1:
-            raise ValueError(f"top_k must be >= 1, got {top_k}")
+        validate_unit_weights(alpha=alpha)
+        validate_positive_int("top_k", top_k)
         if not subgraph.papers:
             return RankingResult()
 
@@ -115,7 +114,7 @@ class CombinedRankingService:
         }
 
         # [3] Combined score = alpha × centrality + (1 − alpha) × semantic.
-        papers_map = {sp.paper.paper_id: sp.paper for sp in subgraph.papers}
+        papers_map = build_papers_map(subgraph)
         scored: list[ScoredPaper] = [
             ScoredPaper(
                 paper=papers_map[pid],
