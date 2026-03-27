@@ -13,7 +13,7 @@ from neo4j import Driver
 
 from aievograph.domain.models import ScoredPaper
 from aievograph.domain.ports.vector_repository import VectorRepositoryPort
-from aievograph.infrastructure.neo4j_graph_repository import _record_to_paper
+from aievograph.infrastructure.neo4j_utils import record_to_paper as _record_to_paper
 
 logger = logging.getLogger(__name__)
 

@@ -16,8 +16,9 @@ from typing import Any
 
 from neo4j import Driver
 
-from aievograph.domain.models import Author, Citation, Method, MethodRelation, Paper
+from aievograph.domain.models import Citation, Method, MethodRelation, Paper
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
+from aievograph.infrastructure.neo4j_utils import record_to_paper as _record_to_paper_util
 
 logger = logging.getLogger(__name__)
 
@@ -229,34 +230,10 @@ DETACH DELETE variant
 def _record_to_paper(record: Any) -> Paper:
     """Convert a Neo4j record to a Paper domain object.
 
-    Uses .get() for all node fields so that missing properties raise a
-    descriptive ValueError instead of a bare KeyError.
+    Thin wrapper around the shared utility in neo4j_utils so that callers
+    (including existing tests) that import this name continue to work.
     """
-    node = record["p"]
-    paper_id = node.get("paper_id")
-    title = node.get("title")
-    publication_year = node.get("publication_year")
-    if paper_id is None or title is None or publication_year is None:
-        raise ValueError(
-            f"Paper node missing required fields: "
-            f"paper_id={paper_id!r}, title={title!r}, publication_year={publication_year!r}"
-        )
-    raw_authors: list[Any] = record["authors"] or []
-    authors = [
-        Author(author_id=a["author_id"], name=a["name"])
-        for a in raw_authors
-        if a is not None and a.get("author_id") and a.get("name")
-    ]
-    return Paper(
-        paper_id=paper_id,
-        title=title,
-        publication_year=publication_year,
-        venue=node.get("venue"),
-        abstract=node.get("abstract"),
-        citation_count=node.get("citation_count") or 0,
-        reference_count=node.get("reference_count") or 0,
-        authors=authors,
-    )
+    return _record_to_paper_util(record)
 
 
 class Neo4jGraphRepository(GraphRepositoryPort):

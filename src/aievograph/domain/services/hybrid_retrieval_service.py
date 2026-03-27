@@ -23,6 +23,7 @@ from aievograph.domain.models import ScoredPaper, Subgraph
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
 from aievograph.domain.services.graph_retrieval_service import _MAX_HOPS
 from aievograph.domain.services.vector_retrieval_service import VectorRetrievalService
+from aievograph.domain.utils.ranking_utils import sort_scored_papers
 from aievograph.domain.utils.validation_utils import validate_non_empty_str
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ class HybridRetrievalService:
             scored.append(ScoredPaper(paper=paper, score=score))
 
         # Step 5: Sort descending; paper_id is a deterministic tiebreaker.
-        scored.sort(key=lambda sp: (-sp.score, sp.paper.paper_id))
+        sort_scored_papers(scored)
         logger.debug(
             "Hybrid search for %r (type=%s, α=%.2f, β=%.2f, hops=%d) → %d/%d papers selected",
             query,

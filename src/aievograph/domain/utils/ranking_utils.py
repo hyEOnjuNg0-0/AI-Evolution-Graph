@@ -1,8 +1,22 @@
 """Shared utilities for Layer C ranking services."""
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aievograph.domain.models import ScoredPaper
 
 logger = logging.getLogger(__name__)
+
+
+def sort_scored_papers(papers: "list[ScoredPaper]") -> "list[ScoredPaper]":
+    """Sort a ScoredPaper list by score descending, paper_id ascending as tiebreaker.
+
+    Mutates the list in-place (consistent with how callers use .sort()) and
+    also returns it for convenience.
+    """
+    papers.sort(key=lambda sp: (-sp.score, sp.paper.paper_id))
+    return papers
 
 
 def normalize_scores(scores: dict[str, float]) -> dict[str, float]:

@@ -25,6 +25,7 @@ from aievograph.domain.ports.subgraph_edge_repository import SubgraphEdgeReposit
 from aievograph.domain.services.centrality_ranking_service import CentralityRankingService
 from aievograph.domain.services.embedding_ranking_service import EmbeddingRankingService
 from aievograph.domain.utils.graph_utils import extract_dag_paths
+from aievograph.domain.utils.ranking_utils import sort_scored_papers
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class CombinedRankingService:
         ]
 
         # [4] Sort descending, then paper_id as tiebreaker; select top-k.
-        scored.sort(key=lambda sp: (-sp.score, sp.paper.paper_id))
+        sort_scored_papers(scored)
         top_papers = scored[:top_k]
 
         # [5] Fetch citation edges within top-k paper set.
