@@ -14,6 +14,7 @@ import logging
 from neo4j import Driver
 
 from aievograph.domain.ports.method_evolution_repository import MethodEvolutionRepositoryPort
+from aievograph.infrastructure.neo4j_utils import run_and_collect, run_and_group_list
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,12 @@ class Neo4jMethodEvolutionRepository(MethodEvolutionRepositoryPort):
         if not method_names:
             return []
 
-        results: list[tuple[str, str, str]] = []
-        with self._driver.session() as session:
-            for r in session.run(_METHOD_RELATIONS, method_names=method_names):
-                results.append((r["source"], r["target"], r["relation_type"]))
+        results = run_and_collect(
+            self._driver,
+            _METHOD_RELATIONS,
+            {"method_names": method_names},
+            lambda r: (r["source"], r["target"], r["relation_type"]),
+        )
 
         logger.debug(
             "Method relations fetched: %d edges for %d methods",
@@ -68,14 +71,13 @@ class Neo4jMethodEvolutionRepository(MethodEvolutionRepositoryPort):
         if not paper_ids:
             return {}
 
-        result: dict[str, list[str]] = {}
-        with self._driver.session() as session:
-            for r in session.run(_PAPER_METHODS, paper_ids=paper_ids):
-                pid = r["paper_id"]
-                method_name = r["method_name"]
-                if pid not in result:
-                    result[pid] = []
-                result[pid].append(method_name)
+        result = run_and_group_list(
+            self._driver,
+            _PAPER_METHODS,
+            {"paper_ids": paper_ids},
+            group_key="paper_id",
+            value_key="method_name",
+        )
 
         logger.debug(
             "Paper-method mapping fetched: %d/%d papers have USES edges",

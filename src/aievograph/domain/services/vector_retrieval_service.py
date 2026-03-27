@@ -11,6 +11,7 @@ import logging
 from aievograph.domain.models import Paper, ScoredPaper
 from aievograph.domain.ports.embedding_port import EmbeddingPort
 from aievograph.domain.ports.vector_repository import VectorRepositoryPort
+from aievograph.domain.utils.validation_utils import validate_non_empty_str
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +38,7 @@ class VectorRetrievalService:
 
     def search(self, query: str, top_k: int = 10) -> list[ScoredPaper]:
         """Embed query text and return top-k semantically similar papers."""
-        if not query.strip():
-            raise ValueError("query must not be empty")
+        validate_non_empty_str("query", query)
         if top_k <= 0:
             raise ValueError(f"top_k must be a positive integer, got {top_k}")
         query_embedding = self._embedding.embed(query)

@@ -22,6 +22,7 @@ from aievograph.domain.models import ScoredPaper, Subgraph
 from aievograph.domain.ports.embedding_port import EmbeddingPort
 from aievograph.domain.ports.paper_embedding_repository import PaperEmbeddingRepositoryPort
 from aievograph.domain.utils.ranking_utils import normalize_scores
+from aievograph.domain.utils.validation_utils import validate_non_empty_str
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,7 @@ class EmbeddingRankingService:
         Raises:
             ValueError: If query is empty.
         """
-        if not query.strip():
-            raise ValueError("query must not be empty")
+        validate_non_empty_str("query", query)
         if not subgraph.papers:
             return []
 

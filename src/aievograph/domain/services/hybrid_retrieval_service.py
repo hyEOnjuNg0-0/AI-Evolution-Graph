@@ -23,6 +23,7 @@ from aievograph.domain.models import ScoredPaper, Subgraph
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
 from aievograph.domain.services.graph_retrieval_service import _MAX_HOPS
 from aievograph.domain.services.vector_retrieval_service import VectorRetrievalService
+from aievograph.domain.utils.validation_utils import validate_non_empty_str
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,7 @@ class HybridRetrievalService:
                         hops exceeding _MAX_HOPS, or alpha/beta outside [0.0, 1.0] or
                         both zero (which would produce all-zero scores).
         """
-        if not query.strip():
-            raise ValueError("query must not be empty")
+        validate_non_empty_str("query", query)
         if query_type not in _QUERY_WEIGHTS:
             raise ValueError(
                 f"Unknown query_type: {query_type!r}. Must be one of {list(_QUERY_WEIGHTS)}"

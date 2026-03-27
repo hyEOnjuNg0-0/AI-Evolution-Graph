@@ -27,3 +27,17 @@ def validate_positive_int(name: str, value: int) -> None:
     """
     if value < 1:
         raise ValueError(f"{name} must be >= 1, got {value}")
+
+
+def validate_non_empty_str(name: str, value: str) -> None:
+    """Validate that a string parameter is not blank after stripping whitespace.
+
+    Args:
+        name: Parameter name for the error message.
+        value: Value to validate.
+
+    Raises:
+        ValueError: If value is empty or whitespace-only.
+    """
+    if not value.strip():
+        raise ValueError(f"{name} must not be empty")

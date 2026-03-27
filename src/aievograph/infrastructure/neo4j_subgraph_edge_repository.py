@@ -15,6 +15,7 @@ import logging
 from neo4j import Driver
 
 from aievograph.domain.ports.subgraph_edge_repository import SubgraphEdgeRepositoryPort
+from aievograph.infrastructure.neo4j_utils import run_and_collect
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +46,18 @@ class Neo4jSubgraphEdgeRepository(SubgraphEdgeRepositoryPort):
         if not paper_ids:
             return []
 
-        with self._driver.session() as session:
-            result = session.run(_GET_EDGES, paper_ids=paper_ids)
-            edges = [
-                (record["citing"], record["cited"])
-                for record in result
-                if record["citing"] is not None and record["cited"] is not None
-            ]
+        # filter_none=True drops rows where citing or cited resolved to None.
+        edges = run_and_collect(
+            self._driver,
+            _GET_EDGES,
+            {"paper_ids": paper_ids},
+            lambda r: (
+                (r["citing"], r["cited"])
+                if r["citing"] is not None and r["cited"] is not None
+                else None
+            ),
+            filter_none=True,
+        )
 
         logger.debug(
             "Fetched %d citation edges within subgraph of %d papers.",
