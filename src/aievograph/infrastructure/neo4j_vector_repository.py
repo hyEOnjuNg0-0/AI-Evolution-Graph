@@ -13,7 +13,10 @@ from neo4j import Driver
 
 from aievograph.domain.models import ScoredPaper
 from aievograph.domain.ports.vector_repository import VectorRepositoryPort
-from aievograph.infrastructure.neo4j_utils import record_to_paper as _record_to_paper
+from aievograph.infrastructure.neo4j_utils import (
+    record_to_paper as _record_to_paper,
+    run_and_collect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +71,12 @@ class Neo4jVectorRepository(VectorRepositoryPort):
 
     def get_paper_ids_without_embedding(self) -> list[str]:
         """Return paper_ids of Paper nodes that have no embedding property."""
-        with self._driver.session() as session:
-            result = session.run(_GET_PAPER_IDS_WITHOUT_EMBEDDING)
-            return [record["paper_id"] for record in result]
+        return run_and_collect(
+            self._driver,
+            _GET_PAPER_IDS_WITHOUT_EMBEDDING,
+            {},
+            lambda r: r["paper_id"],
+        )
 
     def store_embedding(self, paper_id: str, embedding: list[float]) -> None:
         """Set the embedding property on the Paper node with the given ID.
@@ -88,10 +94,9 @@ class Neo4jVectorRepository(VectorRepositoryPort):
         self, query_embedding: list[float], top_k: int
     ) -> list[ScoredPaper]:
         """Return top-k papers by cosine similarity using the Neo4j vector index."""
-        with self._driver.session() as session:
-            result = session.run(
-                _SIMILARITY_SEARCH,
-                top_k=top_k,
-                query_embedding=query_embedding,
-            )
-            return [_record_to_scored_paper(record) for record in result]
+        return run_and_collect(
+            self._driver,
+            _SIMILARITY_SEARCH,
+            {"top_k": top_k, "query_embedding": query_embedding},
+            _record_to_scored_paper,
+        )
