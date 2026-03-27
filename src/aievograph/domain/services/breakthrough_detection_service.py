@@ -41,6 +41,10 @@ _DEFAULT_TOP_K = 20
 _DEFAULT_S = 2.0       # burst rate multiplier (q₁ = s × q₀)
 _DEFAULT_GAMMA = 1.0   # Kleinberg transition cost coefficient
 
+# Sentinel representing an unreachable Viterbi path cost (larger than any real cost).
+# Used in place of float('inf') to keep arithmetic well-defined across all Python runtimes.
+_INF_COST = 1e18
+
 
 # ---------------------------------------------------------------------------
 # Kleinberg helpers
@@ -59,7 +63,7 @@ def _poisson_neg_log_prob(k: int, lam: float) -> float:
     if k < 0:
         raise ValueError(f"k must be a non-negative integer, got {k}")
     if lam <= 0.0:
-        return 0.0 if k == 0 else 1e18
+        return 0.0 if k == 0 else _INF_COST
     return lam - k * math.log(lam) + math.lgamma(k + 1)
 
 
@@ -93,7 +97,6 @@ def _viterbi_states(
     n_total = sum(counts)
     rates = [q0, s * q0]
     tau = gamma * math.log(max(n_total, 2))
-    INF = 1e18
     K = 2
 
     # dp[k]: minimum cost to be in state k at the current step
@@ -106,7 +109,7 @@ def _viterbi_states(
     prev: list[list[int]] = [[-1] * K for _ in range(T)]
 
     for t in range(1, T):
-        new_dp = [INF] * K
+        new_dp = [_INF_COST] * K
         for j in range(K):
             emit = _poisson_neg_log_prob(counts[t], rates[j])
             for i in range(K):

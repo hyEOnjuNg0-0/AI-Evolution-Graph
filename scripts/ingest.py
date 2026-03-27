@@ -156,7 +156,7 @@ async def main() -> None:
         # --- Embed-only: skip collection, backfill embeddings for existing papers ---
         if args.embed_only:
             logger.info(
-                "Embed-only mode — loading papers from Neo4j (years=%d-%d).",
+                "Embed-only mode: loading papers from Neo4j (years=%d-%d).",
                 year_start, year_end,
             )
             papers = repo.get_papers_by_year_range(year_start, year_end, venues=args.venues)
@@ -174,7 +174,7 @@ async def main() -> None:
         # --- Method-graph-only: skip collection, read papers from Neo4j ---
         if args.method_graph_only:
             logger.info(
-                "Method-graph-only mode — loading papers from Neo4j (years=%d-%d).",
+                "Method-graph-only mode: loading papers from Neo4j (years=%d-%d).",
                 year_start, year_end,
             )
             papers = repo.get_papers_by_year_range(year_start, year_end, venues=args.venues)
@@ -191,7 +191,7 @@ async def main() -> None:
 
         # --- Normal mode: collect papers then store ---
         venues = args.venues or TARGET_VENUES
-        logger.info("Ingestion start — venues=%d, years=%d-%d", len(venues), year_start, year_end)
+        logger.info("Ingestion start: venues=%d, years=%d-%d", len(venues), year_start, year_end)
 
         # 1a. Collect from Semantic Scholar (skip if --arxiv-only)
         if args.arxiv_only:
@@ -204,7 +204,7 @@ async def main() -> None:
         # 1b. Collect arXiv preprints when --arxiv or --arxiv-only is set
         if args.arxiv or args.arxiv_only:
             categories = args.arxiv_categories or TARGET_ARXIV_CATEGORIES
-            logger.info("Collecting arXiv papers — categories=%s", categories)
+            logger.info("Collecting arXiv papers: categories=%s", categories)
             arxiv_collector = ArxivClient(settings)
             arxiv_papers = await arxiv_collector.collect(categories, year_start, year_end)
             logger.info("Collected %d arXiv papers.", len(arxiv_papers))
