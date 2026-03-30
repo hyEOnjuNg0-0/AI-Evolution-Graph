@@ -22,7 +22,11 @@
       "Bash(npm --version)",
       "Bash(npx --yes create-next-app@latest frontend --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
       "Bash(npx --yes shadcn@latest init --defaults --yes)",
-      "Bash(npx shadcn@latest add card input label select slider badge tabs --yes)"
+      "Bash(npx shadcn@latest add card input label select slider badge tabs --yes)",
+      "Bash(pip install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(find C:/AiEvoGraph/frontend/app C:/AiEvoGraph/frontend/lib C:/AiEvoGraph/frontend/components -name *.ts -o -name *.tsx)"
     ]
   }
 }

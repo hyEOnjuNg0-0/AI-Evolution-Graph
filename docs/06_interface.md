@@ -14,9 +14,9 @@
 
 **기능 ①: Research Lineage Exploration**
 
-- [ ] Seed paper / keyword 입력
-- [ ] Hop depth, Time range 설정
-- [ ] 검색 실행 및 결과 수신
+- [x] Seed paper / keyword 입력
+- [x] Hop depth, Time range 설정
+- [x] 검색 실행 및 결과 수신
 
 ### Step 6.3 — Graph View Panel
 

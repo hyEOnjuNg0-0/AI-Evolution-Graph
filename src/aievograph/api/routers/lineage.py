@@ -32,7 +32,7 @@ def explore_lineage(
     try:
         subgraph = retrieval_svc.search(
             query=req.seed,
-            query_type="balanced",
+            query_type=req.query_type,
             top_k=req.top_k,
             hops=req.hop_depth,
         )

@@ -26,12 +26,6 @@ Layer A — Knowledge Graph (Citation + Method Evolution)
 
 **Build bottom-up**: never implement a higher layer without the lower layer fully tested.
 
-각 주요 기능을 LangGraph의 StateGraph로 구현합니다.
-
-- 각 노드가 하나의 레이어 기능을 호출
-- State 객체로 중간 결과 전달
-- 조건부 분기 (예: subgraph가 너무 크면 pruning 단계 추가)
-
 ## Rules
 
 Read docs/TECHSPEC.md and docs/STRUCTURE.md before conducting your work.
