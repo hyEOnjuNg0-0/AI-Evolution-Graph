@@ -184,8 +184,35 @@ AiEvoGraph/
 │       │   ├── neo4j_method_evolution_repository.py # Neo4jMethodEvolutionRepository (MethodEvolutionRepositoryPort 구현체, method 관계·paper-method 매핑)
 │       │   └── neo4j_utils.py              # Neo4j 공유 쿼리 유틸리티 (run_grouped_query: nested dict 누적 패턴)
 
+│       ├── api/                             # Layer E — FastAPI application
+│       │   ├── __init__.py
+│       │   ├── main.py                      # FastAPI app + CORS + router registration
+│       │   ├── dependencies.py              # DI factories: service wiring for route handlers
+│       │   ├── routers/
+│       │   │   ├── __init__.py
+│       │   │   ├── lineage.py               # POST /api/lineage (Research Lineage Exploration)
+│       │   │   ├── breakthrough.py          # POST /api/breakthrough (Breakthrough Detection)
+│       │   │   └── trend.py                 # POST /api/trend (Trend Momentum Analysis)
+│       │   └── schemas/
+│       │       ├── __init__.py
+│       │       ├── lineage.py               # LineageRequest / LineageResponse
+│       │       ├── breakthrough.py          # BreakthroughRequest / BreakthroughResponse
+│       │       └── trend.py                 # TrendRequest / TrendResponse
+│
 │       └── __init__.py
 
+
+├── frontend/                                # Layer E — Next.js frontend
+│   ├── app/                                 # Next.js App Router pages
+│   ├── components/ui/                       # ShadCN UI components
+│   ├── lib/
+│   │   ├── api.ts                           # Typed API client (fetch wrappers)
+│   │   └── utils.ts                         # ShadCN utility (cn)
+│   ├── .env.local.example                   # NEXT_PUBLIC_API_URL template
+│   ├── components.json                      # ShadCN configuration
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   └── package.json
 
 ├── tests/
 

@@ -5,10 +5,10 @@
 
 ### Step 6.1 — 프로젝트 설정 및 API 연동
 
-- [ ] Next.js + TailwindCSS + ShadCN 프로젝트 초기화
-- [ ] Python 백엔드 API 설계 (FastAPI 등)
-- [ ] API 엔드포인트 정의 (각 기능별)
-- [ ] 프론트엔드-백엔드 통신 구조 확립
+- [x] Next.js + TailwindCSS + ShadCN 프로젝트 초기화
+- [x] Python 백엔드 API 설계 (FastAPI 등)
+- [x] API 엔드포인트 정의 (각 기능별)
+- [x] 프론트엔드-백엔드 통신 구조 확립
 
 ### Step 6.2 — Query Panel
 

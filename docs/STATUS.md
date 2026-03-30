@@ -8,7 +8,7 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-03-27 (리팩토링: O 패턴 — neo4j_vector_repository.py의 단순 리스트 수집 2개 메서드를 run_and_collect 헬퍼로 교체; P 패턴 — EMBEDDING_DIMENSIONS 중복 확인, 레이어 의존성 위반 없는 공통 위치 부재로 인라인 유지 결정)
+> 마지막 업데이트: 2026-03-30 (Step 6.1: FastAPI 백엔드 구조 생성, Next.js+TailwindCSS+ShadCN 초기화, TypeScript API 클라이언트 구현)
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
@@ -19,7 +19,7 @@
 | 3 | Layer B — Retrieval | 🟢 완료 | 100% (Step 3.3 완료) |
 | 4 | Layer C — Ranking | 🟢 완료 | 100% (Step 4.1, 4.2, 4.3 완료) |
 | 5 | Layer D — Analytical | 🟢 완료 | 100% (Step 5.1, 5.2, 5.3 완료) |
-| 6 | Layer E — Interface | 🔴 미착수 | 0% |
+| 6 | Layer E — Interface | 🟡 진행 중 | 25% (Step 6.1 완료) |
 | 7 | 통합 및 실험 | 🔴 미착수 | 0% |
 
 **상태 범례**: 🔴 미착수 · 🟡 진행 중 · 🟢 완료 · ⏸️ 보류

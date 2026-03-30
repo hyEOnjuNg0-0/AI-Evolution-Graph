@@ -18,7 +18,11 @@
       "Bash(find /c/AiEvoGraph/tests -name *breakthrough* -o -name *burst* -o -name *analytical*)",
       "Bash(find /c/AiEvoGraph -name *breakthrough* -o -name *analytical*)",
       "Bash(python -c \":*)",
-      "Bash(find /c/AiEvoGraph/tests -name *ranking* -o -name *breakthrough* -o -name *trend* -o -name *evolution*)"
+      "Bash(find /c/AiEvoGraph/tests -name *ranking* -o -name *breakthrough* -o -name *trend* -o -name *evolution*)",
+      "Bash(npm --version)",
+      "Bash(npx --yes create-next-app@latest frontend --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npx --yes shadcn@latest init --defaults --yes)",
+      "Bash(npx shadcn@latest add card input label select slider badge tabs --yes)"
     ]
   }
 }
