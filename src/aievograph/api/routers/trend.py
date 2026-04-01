@@ -16,7 +16,6 @@ from aievograph.api.dependencies import (
     get_trend_service,
 )
 from aievograph.api.schemas.trend import EvolutionStep, TrendRequest, TrendResponse, YearlyScore
-from aievograph.domain.services.breakthrough_detection_service import BreakthroughDetectionService
 from aievograph.domain.services.evolution_path_service import EvolutionPathService
 from aievograph.domain.services.trend_momentum_service import TrendMomentumService
 from aievograph.infrastructure.neo4j_graph_repository import Neo4jGraphRepository
@@ -30,7 +29,7 @@ def analyze_trend(
     req: TrendRequest,
     graph_repo: Neo4jGraphRepository = Depends(get_graph_repository),
     trend_svc: TrendMomentumService = Depends(get_trend_service),
-    breakthrough_svc: BreakthroughDetectionService = Depends(get_breakthrough_service),
+    breakthrough_svc = Depends(get_breakthrough_service),
     evolution_svc: EvolutionPathService = Depends(get_evolution_path_service),
 ) -> TrendResponse:
     """Compute trend momentum for a method/topic and return its evolution path.
@@ -41,8 +40,6 @@ def analyze_trend(
       3. EvolutionPathService extracts the research-lineage path.
     """
     recent_years = req.end_year - req.start_year + 1
-    if recent_years < 1:
-        raise HTTPException(status_code=422, detail="end_year must be >= start_year")
 
     # Step 1: Resolve method names matching the topic (case-insensitive substring).
     all_method_names = graph_repo.get_all_method_names()

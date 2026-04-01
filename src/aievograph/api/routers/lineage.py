@@ -73,11 +73,11 @@ def explore_lineage(
             if neighbor.paper_id in result_ids:
                 edges.append(CitationEdge(source_id=node.paper_id, target_id=neighbor.paper_id))
 
-    # Deduplicate edges (undirected traversal may produce duplicates).
+    # Deduplicate directed edges; A→B and B→A are distinct citation relationships.
     seen: set[tuple[str, str]] = set()
     unique_edges = []
     for e in edges:
-        key = (min(e.source_id, e.target_id), max(e.source_id, e.target_id))
+        key = (e.source_id, e.target_id)
         if key not in seen:
             seen.add(key)
             unique_edges.append(e)
