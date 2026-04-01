@@ -55,7 +55,10 @@ def detect_breakthroughs(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    # Filter by the requested year window. Papers with no year pass through unconditionally.
+    # Filter by the requested year window.
+    # Papers with publication_year=None pass unconditionally: unknown publication date
+    # should not silently exclude a candidate. They proceed to breakthrough scoring,
+    # which is citation-based and does not depend on the publication year field.
     candidate_ids = [
         sp.paper.paper_id
         for sp in subgraph.papers

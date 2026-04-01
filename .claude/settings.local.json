@@ -30,7 +30,8 @@
       "Bash(/tmp/adversarial_test_plan.txt:*)",
       "Read(//tmp/**)",
       "Read(//api/**)",
-      "Bash(__NEW_LINE_8d3e397fc1b6361e__ cat:*)"
+      "Bash(__NEW_LINE_8d3e397fc1b6361e__ cat:*)",
+      "Bash(grep -n \"HTTPException\" src/aievograph/api/routers/*.py)"
     ]
   }
 }
