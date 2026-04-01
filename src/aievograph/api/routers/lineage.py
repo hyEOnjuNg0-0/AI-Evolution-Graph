@@ -41,11 +41,11 @@ def explore_lineage(
 
     paper_ids = {sp.paper.paper_id for sp in subgraph.papers}
 
-    # Apply optional year filters.
+    # Apply optional year filters. Papers with no year pass through unconditionally.
     scored_papers = [
         sp for sp in subgraph.papers
-        if (req.start_year is None or (sp.paper.publication_year or 0) >= req.start_year)
-        and (req.end_year is None or (sp.paper.publication_year or 0) <= req.end_year)
+        if (req.start_year is None or sp.paper.publication_year is None or sp.paper.publication_year >= req.start_year)
+        and (req.end_year is None or sp.paper.publication_year is None or sp.paper.publication_year <= req.end_year)
     ]
 
     nodes = [

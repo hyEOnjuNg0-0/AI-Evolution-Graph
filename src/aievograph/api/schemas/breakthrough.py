@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class BreakthroughRequest(BaseModel):
@@ -6,6 +6,12 @@ class BreakthroughRequest(BaseModel):
     start_year: int = Field(..., description="Time window start year")
     end_year: int = Field(..., description="Time window end year")
     top_k: int = Field(10, ge=1, le=50, description="Max breakthrough candidates to return")
+
+    @model_validator(mode="after")
+    def validate_year_range(self) -> "BreakthroughRequest":
+        if self.start_year > self.end_year:
+            raise ValueError("start_year must be <= end_year")
+        return self
 
 
 class BreakthroughCandidate(BaseModel):

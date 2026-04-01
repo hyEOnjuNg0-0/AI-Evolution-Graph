@@ -55,12 +55,12 @@ def detect_breakthroughs(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    # Filter by the requested year window.
+    # Filter by the requested year window. Papers with no year pass through unconditionally.
     candidate_ids = [
         sp.paper.paper_id
         for sp in subgraph.papers
-        if (sp.paper.publication_year or 0) >= req.start_year
-        and (sp.paper.publication_year or 0) <= req.end_year
+        if (sp.paper.publication_year is None or sp.paper.publication_year >= req.start_year)
+        and (sp.paper.publication_year is None or sp.paper.publication_year <= req.end_year)
     ]
 
     if not candidate_ids:

@@ -1,10 +1,16 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TrendRequest(BaseModel):
     topic: str = Field(..., description="Method or topic name to analyze")
     start_year: int = Field(..., description="Analysis period start year")
     end_year: int = Field(..., description="Analysis period end year")
+
+    @model_validator(mode="after")
+    def validate_year_range(self) -> "TrendRequest":
+        if self.start_year > self.end_year:
+            raise ValueError("start_year must be <= end_year")
+        return self
 
 
 class YearlyScore(BaseModel):
