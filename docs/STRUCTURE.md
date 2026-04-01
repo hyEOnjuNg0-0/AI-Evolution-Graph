@@ -207,7 +207,9 @@ AiEvoGraph/
 │   ├── components/ui/                       # ShadCN UI components
 │   ├── components/
 │   │   ├── ui/                              # ShadCN UI primitives (button, card, input, …)
-│   │   └── lineage-query-panel.tsx          # Step 6.2: Research Lineage Exploration Query Panel
+│   │   │   ├── lineage-query-panel.tsx          # Step 6.2: Research Lineage Exploration Query Panel
+│   │   ├── graph-view-panel.tsx             # Step 6.3: Citation Graph SVG + Evolution Path DAG
+│   └── main-view.tsx                        # Step 6.3: Client shell — shared lineage/trend state
 │   ├── lib/
 │   │   ├── api.ts                           # Typed API client (fetch wrappers)
 │   │   └── utils.ts                         # ShadCN utility (cn)

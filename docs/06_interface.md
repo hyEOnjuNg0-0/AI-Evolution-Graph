@@ -23,16 +23,16 @@
 
 **Citation Graph (Lineage 결과 시각화)**
 
-- [ ] react-force-graph 또는 Cytoscape.js로 인터랙티브 그래프 렌더링
-- [ ] 노드: paper_id, title, year, citation_count, hybrid score 표시
-- [ ] 엣지: citation 방향 화살표
-- [ ] 노드 클릭 → 사이드 패널에 상세 정보 + Semantic Scholar 링크
-- [ ] year 슬라이더로 그래프 시간 필터링 (Query Panel과 연동)
+- [x] SVG 기반 force-directed 그래프 렌더링 (Fruchterman-Reingold, 외부 라이브러리 없음)
+- [x] 노드: year 레이블, hybrid score로 색상 변화 (진한 파랑 = 높은 score)
+- [x] 엣지: citation 방향 화살표 (SVG marker)
+- [x] 노드 클릭 → 상세 패널 (title, authors, year, citation_count, score, Semantic Scholar 링크)
+- [x] year 슬라이더로 그래프 시간 필터링 (Query Panel 쿼리 결과 기준 범위 자동 조정)
 
 **Evolution Path (Trend 결과 시각화)**
 
-- [ ] evolution_path 스텝을 수평 DAG로 렌더링 (from_method → to_method, relation_type 레이블 표시)
-- [ ] 각 노드에 breakthrough 여부 배지 표시 (composite_score 임계값 기준)
+- [x] evolution_path 스텝을 수평 DAG로 렌더링 (from_method → to_method, relation_type 레이블 표시)
+- [x] 각 노드에 breakthrough 여부 배지 표시 (composite_score ≥ 0.5 임계값 기준, ★ 아이콘)
 
 ### Step 6.4 — Insight Panel
 
