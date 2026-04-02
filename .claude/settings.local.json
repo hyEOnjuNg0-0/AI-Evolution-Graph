@@ -34,7 +34,8 @@
       "Bash(grep -n \"HTTPException\" src/aievograph/api/routers/*.py)",
       "Bash(git check-ignore:*)",
       "Bash(git -C /c/AiEvoGraph/frontend rev-parse --git-dir)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(node /c/AiEvoGraph/frontend/components/graph-view-panel.adversarial-test.ts)"
     ]
   }
 }

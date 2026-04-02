@@ -130,7 +130,9 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
   const years = papers.map((p) => p.year).filter((y): y is number => y !== null);
   const minYear = years.length ? Math.min(...years) : 2011;
   const maxYear = years.length ? Math.max(...years) : 2025;
-  const hasRange = minYear < maxYear;
+  // Only show the slider when there is a real year range AND at least one paper has a year.
+  // If all years are null the slider would render but have no filtering effect.
+  const hasRange = years.length > 0 && minYear < maxYear;
 
   const [yearRange, setYearRange] = useState<[number, number]>([minYear, maxYear]);
   const [selected, setSelected] = useState<PaperNode | null>(null);
@@ -213,7 +215,10 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
             value={yearRange}
             onValueChange={(val) => {
               const v = Array.isArray(val) ? [...val] : [val, val];
-              if (v.length >= 2 && v[0] <= v[1]) setYearRange([v[0], v[1]]);
+              const [lo, hi] = v;
+              if (typeof lo === "number" && typeof hi === "number" && lo <= hi) {
+                setYearRange([lo, hi]);
+              }
             }}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -415,20 +420,31 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
       }
     });
 
-    function dfs(u: string): void {
-      color[u] = GRAY;
-      for (const { to, idx } of outEdges.get(u) ?? []) {
-        if (color[to] === GRAY) {
-          result.add(idx); // target is an ancestor → cycle-creating back edge
-        } else if (color[to] === WHITE) {
-          dfs(to);
+    // Iterative DFS using an explicit stack to avoid call-stack overflow on large graphs.
+    // Stack entries: [node, iterator over its outgoing edges]
+    for (const start of methodNames) {
+      if (color[start] !== WHITE) continue;
+      // Each stack frame: [nodeName, edgeIndex into outEdges[node]]
+      const stack: [string, number][] = [[start, 0]];
+      color[start] = GRAY;
+      while (stack.length > 0) {
+        const frame = stack[stack.length - 1];
+        const [u, ei] = frame;
+        const edges = outEdges.get(u) ?? [];
+        if (ei >= edges.length) {
+          color[u] = BLACK;
+          stack.pop();
+        } else {
+          frame[1]++; // advance edge pointer before potential push
+          const { to, idx } = edges[ei];
+          if (color[to] === GRAY) {
+            result.add(idx); // back edge: target is an ancestor in the DFS tree
+          } else if (color[to] === WHITE) {
+            color[to] = GRAY;
+            stack.push([to, 0]);
+          }
         }
       }
-      color[u] = BLACK;
-    }
-
-    for (const name of methodNames) {
-      if (color[name] === WHITE) dfs(name);
     }
     return result;
   })();
@@ -455,9 +471,9 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
     const ti = methodNames.indexOf(step.to_method);
     if (fi < 0 || ti < 0 || fi === ti) return;
     const labelX = (boxLeft(fi) + BOX_W + boxLeft(ti) - 5) / 2;
-    // Probe lanes 0, 1, 2, … until finding one with no x-overlap (handles 3+ collisions)
+    // Probe lanes 0, 1, 2, … until finding one with no x-overlap (cap at 20 to prevent runaway)
     let lane = 0;
-    while (placedFwdLabels.some((l) => l.lane === lane && Math.abs(l.x - labelX) < LABEL_HALF_W * 2)) {
+    while (lane < 20 && placedFwdLabels.some((l) => l.lane === lane && Math.abs(l.x - labelX) < LABEL_HALF_W * 2)) {
       lane++;
     }
     forwardLanes.set(idx, lane);
