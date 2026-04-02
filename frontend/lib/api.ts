@@ -1,0 +1,132 @@
+/**
+ * AI EvoGraph API client.
+ * Typed wrappers around the FastAPI backend endpoints.
+ */
+
+// Empty string means relative URL — Next.js rewrites proxy /api/* to the backend.
+// Set NEXT_PUBLIC_API_URL to override (e.g. direct backend access in tests).
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+// ---------------------------------------------------------------------------
+// Shared
+// ---------------------------------------------------------------------------
+
+async function post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`API error ${res.status}: ${detail}`);
+  }
+  return res.json() as Promise<TRes>;
+}
+
+// ---------------------------------------------------------------------------
+// Lineage — Research Lineage Exploration
+// ---------------------------------------------------------------------------
+
+export type QueryType = "semantic" | "structural" | "balanced";
+
+export interface LineageRequest {
+  seed: string;
+  hop_depth?: number;       // default 2
+  start_year?: number;
+  end_year?: number;
+  top_k?: number;           // default 20
+  query_type?: QueryType;   // default "balanced"
+}
+
+export interface PaperNode {
+  paper_id: string;
+  title: string;
+  year: number | null;
+  authors: string[];
+  citation_count: number;
+  score: number | null;
+}
+
+export interface CitationEdge {
+  source_id: string;
+  target_id: string;
+}
+
+export interface LineageResponse {
+  papers: PaperNode[];
+  edges: CitationEdge[];
+  total: number;
+}
+
+export function exploreLineage(req: LineageRequest): Promise<LineageResponse> {
+  return post<LineageRequest, LineageResponse>("/api/lineage", req);
+}
+
+// ---------------------------------------------------------------------------
+// Breakthrough — Breakthrough Detection
+// ---------------------------------------------------------------------------
+
+export interface BreakthroughRequest {
+  field: string;
+  start_year: number;
+  end_year: number;
+  top_k?: number;  // default 10
+}
+
+export interface BreakthroughCandidate {
+  paper_id: string;
+  title: string;
+  year: number | null;
+  burst_score: number;
+  centrality_shift: number;
+  composite_score: number;
+}
+
+export interface BreakthroughResponse {
+  candidates: BreakthroughCandidate[];
+  total: number;
+}
+
+export function detectBreakthroughs(
+  req: BreakthroughRequest
+): Promise<BreakthroughResponse> {
+  return post<BreakthroughRequest, BreakthroughResponse>("/api/breakthrough", req);
+}
+
+// ---------------------------------------------------------------------------
+// Trend — Trend Momentum Analysis
+// ---------------------------------------------------------------------------
+
+export interface TrendRequest {
+  topic: string;
+  start_year: number;
+  end_year: number;
+}
+
+export interface YearlyScore {
+  year: number;
+  usage_count: number;
+  score: number;
+}
+
+export interface EvolutionStep {
+  from_method: string;
+  to_method: string;
+  relation_type: string;
+  year: number | null;
+}
+
+export interface TrendResponse {
+  topic: string;
+  cagr: number;
+  entropy: number;
+  adoption_velocity: number;
+  momentum_score: number;
+  yearly_scores: YearlyScore[];
+  evolution_path: EvolutionStep[];
+}
+
+export function analyzeTrend(req: TrendRequest): Promise<TrendResponse> {
+  return post<TrendRequest, TrendResponse>("/api/trend", req);
+}
