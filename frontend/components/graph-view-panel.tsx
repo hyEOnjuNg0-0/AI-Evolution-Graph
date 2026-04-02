@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 
 import {
+  type BreakthroughResponse,
   type CitationEdge,
   type LineageResponse,
   type PaperNode,
@@ -137,16 +138,13 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
     setYearRange([minYear, maxYear]);
   }, [minYear, maxYear]);
 
-  // Clear selection when it falls outside the current year filter
+  // Clear selection whenever the selected paper is no longer in the visible set
+  // (covers year-filter exclusion and result-set replacement in one check)
   useEffect(() => {
-    if (
-      selected?.year !== undefined &&
-      selected.year !== null &&
-      (selected.year < yearRange[0] || selected.year > yearRange[1])
-    ) {
+    if (selected && !visibleIds.has(selected.paper_id)) {
       setSelected(null);
     }
-  }, [yearRange, selected]);
+  }, [visibleIds, selected]);
 
   const visiblePapers = useMemo(
     () =>
@@ -247,7 +245,8 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
           {visibleEdges.map((e, i) => {
             const a = layout.get(e.source_id);
             const b = layout.get(e.target_id);
-            if (!a || !b) return null;
+            // Guard: skip missing nodes or NaN coordinates (residual from force-layout edge cases)
+            if (!a || !b || !isFinite(a.x) || !isFinite(a.y) || !isFinite(b.x) || !isFinite(b.y)) return null;
             const dx = b.x - a.x;
             const dy = b.y - a.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -550,9 +549,10 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
 export interface GraphViewPanelProps {
   lineageResult: LineageResponse | null;
   trendResult: TrendResponse | null;
+  breakthroughResult: BreakthroughResponse | null;
 }
 
-export function GraphViewPanel({ lineageResult, trendResult }: GraphViewPanelProps) {
+export function GraphViewPanel({ lineageResult, trendResult, breakthroughResult }: GraphViewPanelProps) {
   if (!lineageResult && !trendResult) {
     return (
       <Card>
@@ -594,7 +594,16 @@ export function GraphViewPanel({ lineageResult, trendResult }: GraphViewPanelPro
 
           <TabsContent value="evolution" className="mt-4">
             {trendResult ? (
-              <EvolutionPathView evolutionPath={trendResult.evolution_path} />
+              <EvolutionPathView
+                evolutionPath={trendResult.evolution_path}
+                breakthroughScores={
+                  breakthroughResult
+                    ? new Map(
+                        breakthroughResult.candidates.map((c) => [c.title, c.composite_score])
+                      )
+                    : undefined
+                }
+              />
             ) : (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                 Run a Trend Momentum analysis to view the evolution path.
