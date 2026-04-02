@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 
 import {
-  type BreakthroughResponse,
   type CitationEdge,
   type LineageResponse,
   type PaperNode,
@@ -109,7 +108,7 @@ const SEMANTIC_SCHOLAR_BASE = "https://www.semanticscholar.org/paper/";
 
 /** Map a hybrid score [0, 1] to an HSL fill colour. */
 function scoreToFill(score: number | null): string {
-  if (score === null) return "hsl(220 14% 55%)";
+  if (score === null || !isFinite(score)) return "hsl(220 14% 55%)";
   const lightness = Math.round(70 - score * 30); // 70 → 40 as score rises
   return `hsl(220 70% ${lightness}%)`;
 }
@@ -549,10 +548,9 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
 export interface GraphViewPanelProps {
   lineageResult: LineageResponse | null;
   trendResult: TrendResponse | null;
-  breakthroughResult: BreakthroughResponse | null;
 }
 
-export function GraphViewPanel({ lineageResult, trendResult, breakthroughResult }: GraphViewPanelProps) {
+export function GraphViewPanel({ lineageResult, trendResult }: GraphViewPanelProps) {
   if (!lineageResult && !trendResult) {
     return (
       <Card>
@@ -597,10 +595,8 @@ export function GraphViewPanel({ lineageResult, trendResult, breakthroughResult 
               <EvolutionPathView
                 evolutionPath={trendResult.evolution_path}
                 breakthroughScores={
-                  breakthroughResult
-                    ? new Map(
-                        breakthroughResult.candidates.map((c) => [c.title, c.composite_score])
-                      )
+                  trendResult.method_scores.length > 0
+                    ? new Map(trendResult.method_scores.map((ms) => [ms.method, ms.score]))
                     : undefined
                 }
               />

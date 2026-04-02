@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { type BreakthroughResponse, type LineageResponse, type TrendResponse } from "@/lib/api";
+import { type LineageResponse, type TrendResponse } from "@/lib/api";
 import { GraphViewPanel } from "@/components/graph-view-panel";
 import { LineageQueryPanel } from "@/components/lineage-query-panel";
 
@@ -12,18 +12,13 @@ import { LineageQueryPanel } from "@/components/lineage-query-panel";
  */
 export function MainView() {
   const [lineageResult, setLineageResult] = useState<LineageResponse | null>(null);
-  // trendResult and breakthroughResult will be populated by the Insight Panel in Step 6.4
+  // trendResult will be populated by the Insight Panel in Step 6.4
   const [trendResult] = useState<TrendResponse | null>(null);
-  const [breakthroughResult] = useState<BreakthroughResponse | null>(null);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
       <LineageQueryPanel onResult={setLineageResult} />
-      <GraphViewPanel
-        lineageResult={lineageResult}
-        trendResult={trendResult}
-        breakthroughResult={breakthroughResult}
-      />
+      <GraphViewPanel lineageResult={lineageResult} trendResult={trendResult} />
     </div>
   );
 }

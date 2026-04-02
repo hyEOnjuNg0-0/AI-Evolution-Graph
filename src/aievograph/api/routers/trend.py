@@ -15,7 +15,7 @@ from aievograph.api.dependencies import (
     get_graph_repository,
     get_trend_service,
 )
-from aievograph.api.schemas.trend import EvolutionStep, TrendRequest, TrendResponse, YearlyScore
+from aievograph.api.schemas.trend import EvolutionStep, MethodScore, TrendRequest, TrendResponse, YearlyScore
 from aievograph.domain.services.breakthrough_detection_service import BreakthroughDetectionService
 from aievograph.domain.services.evolution_path_service import EvolutionPathService
 from aievograph.domain.services.trend_momentum_service import TrendMomentumService
@@ -76,6 +76,7 @@ def analyze_trend(
     paper_ids = [p.paper_id for p in papers_in_window]
 
     evolution_steps: list[EvolutionStep] = []
+    method_scores: list[MethodScore] = []
     if paper_ids:
         try:
             breakthroughs = breakthrough_svc.detect(
@@ -90,7 +91,7 @@ def analyze_trend(
                 breakthrough_candidates=breakthroughs,
                 top_k=5,
             )
-            # Flatten the top evolution path into steps.
+            # Flatten the top evolution path into steps and extract per-method influence scores.
             if evo_paths:
                 top_path = evo_paths[0]
                 for i, (src, tgt) in enumerate(zip(top_path.path, top_path.path[1:])):
@@ -102,6 +103,10 @@ def analyze_trend(
                             year=None,
                         )
                     )
+                method_scores = [
+                    MethodScore(method=m, score=s)
+                    for m, s in top_path.influence_scores.items()
+                ]
         except Exception:
             logger.warning("Evolution path extraction failed for topic=%r", req.topic, exc_info=True)
 
@@ -120,4 +125,5 @@ def analyze_trend(
         momentum_score=top.trend_score,
         yearly_scores=yearly_scores,
         evolution_path=evolution_steps,
+        method_scores=method_scores,
     )

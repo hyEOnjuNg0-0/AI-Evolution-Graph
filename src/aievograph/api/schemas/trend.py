@@ -26,6 +26,11 @@ class EvolutionStep(BaseModel):
     year: int | None
 
 
+class MethodScore(BaseModel):
+    method: str
+    score: float
+
+
 class TrendResponse(BaseModel):
     topic: str
     cagr: float
@@ -34,3 +39,4 @@ class TrendResponse(BaseModel):
     momentum_score: float
     yearly_scores: list[YearlyScore]
     evolution_path: list[EvolutionStep]
+    method_scores: list[MethodScore]

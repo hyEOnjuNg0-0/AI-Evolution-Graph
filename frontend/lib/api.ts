@@ -117,6 +117,11 @@ export interface EvolutionStep {
   year: number | null;
 }
 
+export interface MethodScore {
+  method: string;
+  score: number;
+}
+
 export interface TrendResponse {
   topic: string;
   cagr: number;
@@ -125,6 +130,7 @@ export interface TrendResponse {
   momentum_score: number;
   yearly_scores: YearlyScore[];
   evolution_path: EvolutionStep[];
+  method_scores: MethodScore[];
 }
 
 export function analyzeTrend(req: TrendRequest): Promise<TrendResponse> {
