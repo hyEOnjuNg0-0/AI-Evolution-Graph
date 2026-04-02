@@ -85,7 +85,9 @@ function computeForceLayout(
     for (const id of nodeIds) {
       const d = disp.get(id)!;
       const p = pos.get(id)!;
-      const mag = Math.sqrt(d.x * d.x + d.y * d.y) || 0.01;
+      const mag = Math.sqrt(d.x * d.x + d.y * d.y);
+      // Guard: skip zero/Infinity/NaN displacement — Infinity*0 = NaN would corrupt positions
+      if (!isFinite(mag) || mag === 0) continue;
       const scale = Math.min(mag, temp) / mag;
       p.x = Math.max(pad, Math.min(w - pad, p.x + d.x * scale));
       p.y = Math.max(pad, Math.min(h - pad, p.y + d.y * scale));
@@ -128,6 +130,12 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
 
   const [yearRange, setYearRange] = useState<[number, number]>([minYear, maxYear]);
   const [selected, setSelected] = useState<PaperNode | null>(null);
+
+  // Reset year range when the data's year bounds change (e.g., query switches from
+  // single-year to multi-year results while the first paper ID stays the same)
+  useEffect(() => {
+    setYearRange([minYear, maxYear]);
+  }, [minYear, maxYear]);
 
   // Clear selection when it falls outside the current year filter
   useEffect(() => {
@@ -374,8 +382,9 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
   const GAP_X = 80;
   const PAD_X = 20;
   const PAD_Y = 24;
+  const ARC_DEPTH = 40; // extra depth below boxes for backward (cyclic) edges
   const svgW = PAD_X * 2 + methodNames.length * BOX_W + (methodNames.length - 1) * GAP_X;
-  const svgH = BOX_H + PAD_Y * 2 + 20; // extra vertical room for edge labels
+  const svgH = BOX_H + PAD_Y * 2 + 20 + ARC_DEPTH; // extra vertical room for edge labels + arcs
 
   const boxLeft = (i: number) => PAD_X + i * (BOX_W + GAP_X);
   const centerY = PAD_Y + BOX_H / 2;
@@ -400,7 +409,45 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
         {evolutionPath.map((step, i) => {
           const fromIdx = methodNames.indexOf(step.from_method);
           const toIdx = methodNames.indexOf(step.to_method);
-          if (fromIdx < 0 || toIdx < 0) return null;
+          if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return null;
+
+          const isBackward = toIdx < fromIdx;
+
+          if (isBackward) {
+            // Backward (cyclic) edge: arc below the boxes so it does not cross other nodes.
+            // Path goes from the bottom-center of "from" box, dips to ARC_DEPTH below, then
+            // rises back up to the bottom-center of "to" box. The arrowhead (markerEnd) lands
+            // at the bottom of the to-box pointing upward, clearly indicating entry direction.
+            const cx_from = boxLeft(fromIdx) + BOX_W / 2;
+            const cx_to = boxLeft(toIdx) + BOX_W / 2;
+            const yBottom = PAD_Y + BOX_H;
+            const yArc = yBottom + ARC_DEPTH;
+            const arrowTipY = yBottom - 2; // just inside box bottom for clean arrowhead placement
+            const pathD = `M ${cx_from},${yBottom} C ${cx_from},${yArc} ${cx_to},${yArc} ${cx_to},${arrowTipY}`;
+            const labelX = (cx_from + cx_to) / 2;
+            const labelY = yArc + 4;
+            return (
+              <g key={i}>
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke="hsl(220 14% 65%)"
+                  strokeWidth={1.5}
+                  markerEnd="url(#evo-arrow)"
+                />
+                <text x={labelX} y={labelY} textAnchor="middle" fontSize={9} fill="hsl(220 14% 45%)">
+                  {step.relation_type}
+                </text>
+                {step.year !== null && (
+                  <text x={labelX} y={labelY + 11} textAnchor="middle" fontSize={8} fill="hsl(220 14% 60%)">
+                    {step.year}
+                  </text>
+                )}
+              </g>
+            );
+          }
+
+          // Forward edge: straight horizontal line between adjacent boxes
           const x1 = boxLeft(fromIdx) + BOX_W;
           const x2 = boxLeft(toIdx) - 5;
           const labelX = (x1 + x2) / 2;
