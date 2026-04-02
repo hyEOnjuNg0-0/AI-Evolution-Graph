@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ---------------------------------------------------------------------------
 // Force-directed layout (Fruchterman-Reingold, runs synchronously)
-// Suitable for n ≤ 20; O(n²) per iteration × 120 iters.
+// Suitable for n ≤ 100; iterations scale as ⌊6000/n⌋ to keep O(n² × iter) bounded.
 // ---------------------------------------------------------------------------
 
 type Vec2 = { x: number; y: number };
@@ -42,7 +42,9 @@ function computeForceLayout(
   const k = Math.sqrt((w * h) / n) * 0.75;
   const pad = 50;
 
-  for (let iter = 0; iter < 120; iter++) {
+  // Scale iteration count with n: large graphs get fewer iterations to avoid blocking the main thread
+  const iterations = Math.max(30, Math.min(120, Math.floor(6000 / n)));
+  for (let iter = 0; iter < iterations; iter++) {
     const disp = new Map<string, Vec2>(nodeIds.map((id) => [id, { x: 0, y: 0 }]));
 
     // Coulomb repulsion between every pair
@@ -81,7 +83,7 @@ function computeForceLayout(
     }
 
     // Apply displacement with simulated-annealing temperature cooling
-    const temp = Math.max(4, 70 * (1 - iter / 120));
+    const temp = Math.max(4, 70 * (1 - iter / iterations));
     for (const id of nodeIds) {
       const d = disp.get(id)!;
       const p = pos.get(id)!;
@@ -105,6 +107,8 @@ const SVG_W = 700;
 const SVG_H = 420;
 const NODE_R = 22;
 const SEMANTIC_SCHOLAR_BASE = "https://www.semanticscholar.org/paper/";
+// Above this node count, force-layout iterations are reduced; a warning is shown in the UI.
+const FORCE_LAYOUT_WARN_THRESHOLD = 25;
 
 /** Map a hybrid score [0, 1] to an HSL fill colour. */
 function scoreToFill(score: number | null): string {
@@ -137,14 +141,6 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
     setYearRange([minYear, maxYear]);
   }, [minYear, maxYear]);
 
-  // Clear selection whenever the selected paper is no longer in the visible set
-  // (covers year-filter exclusion and result-set replacement in one check)
-  useEffect(() => {
-    if (selected && !visibleIds.has(selected.paper_id)) {
-      setSelected(null);
-    }
-  }, [visibleIds, selected]);
-
   const visiblePapers = useMemo(
     () =>
       papers.filter(
@@ -157,6 +153,14 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
     () => new Set(visiblePapers.map((p) => p.paper_id)),
     [visiblePapers]
   );
+
+  // Clear selection whenever the selected paper is no longer in the visible set
+  // (covers year-filter exclusion and result-set replacement in one check)
+  useEffect(() => {
+    if (selected && !visibleIds.has(selected.paper_id)) {
+      setSelected(null);
+    }
+  }, [visibleIds, selected]);
 
   const visibleEdges = useMemo(
     () => edges.filter((e) => visibleIds.has(e.source_id) && visibleIds.has(e.target_id)),
@@ -217,6 +221,13 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
             <span>{maxYear}</span>
           </div>
         </div>
+      )}
+
+      {/* Large-graph performance warning */}
+      {visiblePapers.length > FORCE_LAYOUT_WARN_THRESHOLD && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          {visiblePapers.length} nodes — layout quality is reduced at this scale. Use the year filter to narrow results.
+        </p>
       )}
 
       {/* SVG graph */}
@@ -380,12 +391,81 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
   const GAP_X = 80;
   const PAD_X = 20;
   const PAD_Y = 24;
-  const ARC_DEPTH = 40; // extra depth below boxes for backward (cyclic) edges
-  const svgW = PAD_X * 2 + methodNames.length * BOX_W + (methodNames.length - 1) * GAP_X;
-  const svgH = BOX_H + PAD_Y * 2 + 20 + ARC_DEPTH; // extra vertical room for edge labels + arcs
+  const ARC_BASE = 40;
+  const ARC_STRIDE = 35; // vertical gap between stacked backward arcs
 
   const boxLeft = (i: number) => PAD_X + i * (BOX_W + GAP_X);
   const centerY = PAD_Y + BOX_H / 2;
+
+  // Detect true back edges (cycle-creating) via DFS.
+  // Positional checks (toIdx < fromIdx) alone false-positive on converging DAGs
+  // where a non-cyclic edge happens to point leftward in the layout.
+  const backEdgeIndices = (() => {
+    const WHITE = 0, GRAY = 1, BLACK = 2;
+    const color: Record<string, number> = {};
+    for (const name of methodNames) color[name] = WHITE;
+    const result = new Set<number>();
+
+    // Build per-node outgoing edge list, keyed by source method name
+    const outEdges = new Map<string, { to: string; idx: number }[]>();
+    for (const name of methodNames) outEdges.set(name, []);
+    evolutionPath.forEach((step, idx) => {
+      if (step.from_method in color && step.to_method in color) {
+        outEdges.get(step.from_method)!.push({ to: step.to_method, idx });
+      }
+    });
+
+    function dfs(u: string): void {
+      color[u] = GRAY;
+      for (const { to, idx } of outEdges.get(u) ?? []) {
+        if (color[to] === GRAY) {
+          result.add(idx); // target is an ancestor → cycle-creating back edge
+        } else if (color[to] === WHITE) {
+          dfs(to);
+        }
+      }
+      color[u] = BLACK;
+    }
+
+    for (const name of methodNames) {
+      if (color[name] === WHITE) dfs(name);
+    }
+    return result;
+  })();
+
+  // Pre-compute backward edge arc tiers so each arc sits at a unique depth.
+  const backwardTiers = new Map<number, number>();
+  let backwardCount = 0;
+  evolutionPath.forEach((_step, idx) => {
+    if (backEdgeIndices.has(idx)) {
+      backwardTiers.set(idx, backwardCount++);
+    }
+  });
+  const maxArcDepth = backwardCount > 0 ? ARC_BASE + (backwardCount - 1) * ARC_STRIDE : ARC_BASE;
+
+  // Pre-compute forward edge label lanes to prevent y-overlap.
+  // Two labels collide when their x-midpoints are within LABEL_HALF_W*2 px on the same lane;
+  // a colliding label is bumped to lane 1 (shifted further above the line).
+  const LABEL_HALF_W = 30;
+  const forwardLanes = new Map<number, number>();
+  const placedFwdLabels: { x: number; lane: number }[] = [];
+  evolutionPath.forEach((step, idx) => {
+    if (backEdgeIndices.has(idx)) return; // back edges are arcs, not straight lines
+    const fi = methodNames.indexOf(step.from_method);
+    const ti = methodNames.indexOf(step.to_method);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    const labelX = (boxLeft(fi) + BOX_W + boxLeft(ti) - 5) / 2;
+    // Probe lanes 0, 1, 2, … until finding one with no x-overlap (handles 3+ collisions)
+    let lane = 0;
+    while (placedFwdLabels.some((l) => l.lane === lane && Math.abs(l.x - labelX) < LABEL_HALF_W * 2)) {
+      lane++;
+    }
+    forwardLanes.set(idx, lane);
+    placedFwdLabels.push({ x: labelX, lane });
+  });
+
+  const svgW = PAD_X * 2 + methodNames.length * BOX_W + (methodNames.length - 1) * GAP_X;
+  const svgH = BOX_H + PAD_Y * 2 + 20 + maxArcDepth;
 
   return (
     <div className="overflow-x-auto rounded-lg border bg-background p-4">
@@ -409,17 +489,16 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
           const toIdx = methodNames.indexOf(step.to_method);
           if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return null;
 
-          const isBackward = toIdx < fromIdx;
+          // True back edge (cycle-creating) detected by DFS, not by positional comparison
+          const isBackward = backEdgeIndices.has(i);
 
           if (isBackward) {
-            // Backward (cyclic) edge: arc below the boxes so it does not cross other nodes.
-            // Path goes from the bottom-center of "from" box, dips to ARC_DEPTH below, then
-            // rises back up to the bottom-center of "to" box. The arrowhead (markerEnd) lands
-            // at the bottom of the to-box pointing upward, clearly indicating entry direction.
+            // Each backward arc uses a unique depth tier to avoid overlap.
+            const tier = backwardTiers.get(i) ?? 0;
             const cx_from = boxLeft(fromIdx) + BOX_W / 2;
             const cx_to = boxLeft(toIdx) + BOX_W / 2;
             const yBottom = PAD_Y + BOX_H;
-            const yArc = yBottom + ARC_DEPTH;
+            const yArc = yBottom + ARC_BASE + tier * ARC_STRIDE;
             const arrowTipY = yBottom - 2; // just inside box bottom for clean arrowhead placement
             const pathD = `M ${cx_from},${yBottom} C ${cx_from},${yArc} ${cx_to},${yArc} ${cx_to},${arrowTipY}`;
             const labelX = (cx_from + cx_to) / 2;
@@ -449,6 +528,9 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
           const x1 = boxLeft(fromIdx) + BOX_W;
           const x2 = boxLeft(toIdx) - 5;
           const labelX = (x1 + x2) / 2;
+          // Lane 0 = just above the line; lane 1 = shifted further up to avoid x-overlap
+          const fwdLane = forwardLanes.get(i) ?? 0;
+          const fwdLabelY = centerY - 7 - fwdLane * 12;
           return (
             <g key={i}>
               <line
@@ -460,10 +542,10 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
                 strokeWidth={1.5}
                 markerEnd="url(#evo-arrow)"
               />
-              {/* Relation type label above the edge */}
+              {/* Relation type label, staggered by lane to prevent overlap */}
               <text
                 x={labelX}
-                y={centerY - 7}
+                y={fwdLabelY}
                 textAnchor="middle"
                 fontSize={9}
                 fill="hsl(220 14% 45%)"
