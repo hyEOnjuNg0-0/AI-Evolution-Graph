@@ -82,6 +82,12 @@ def detect_breakthroughs(
     result = []
     for c in raw_candidates:
         paper = paper_cache.get(c.paper_id) or graph_repo.get_paper_by_id(c.paper_id)
+        if paper is None:
+            logger.warning(
+                "Breakthrough enrichment: paper not found in graph (paper_id=%r); "
+                "title and year will be missing from response.",
+                c.paper_id,
+            )
         result.append(
             BreakthroughCandidate(
                 paper_id=c.paper_id,

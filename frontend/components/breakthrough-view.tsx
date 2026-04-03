@@ -198,13 +198,12 @@ export function BreakthroughView() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!field.trim()) return;
-    if (yearRange[0] > yearRange[1]) {
-      setError("Start year must be ≤ end year.");
-      return;
-    }
     if (!field.trim()) {
       setError("Research field is required.");
+      return;
+    }
+    if (yearRange[0] > yearRange[1]) {
+      setError("Start year must be ≤ end year.");
       return;
     }
     setLoading(true);
