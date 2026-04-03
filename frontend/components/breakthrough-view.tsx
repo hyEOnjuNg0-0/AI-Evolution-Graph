@@ -55,7 +55,16 @@ function BreakthroughBarChart({
   const finiteScores = candidates
     .map((c) => c.composite_score)
     .filter((s) => Number.isFinite(s));
-  const maxScore = finiteScores.length > 0 ? Math.max(...finiteScores, 0.01) : 0.01;
+  const maxScore = finiteScores.length > 0 ? Math.max(...finiteScores) : 0;
+
+  // All scores are zero (or non-finite): chart would render blank — show text instead.
+  if (maxScore <= 0) {
+    return (
+      <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+        No breakthrough scores detected — all composite scores are zero.
+      </div>
+    );
+  }
 
   function barY(score: number) {
     if (!Number.isFinite(score)) return PAD_T + CHART_H;
@@ -192,6 +201,10 @@ export function BreakthroughView() {
     if (!field.trim()) return;
     if (yearRange[0] > yearRange[1]) {
       setError("Start year must be ≤ end year.");
+      return;
+    }
+    if (!field.trim()) {
+      setError("Research field is required.");
       return;
     }
     setLoading(true);

@@ -21,7 +21,12 @@ async function post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
     const detail = await res.text();
     throw new Error(`API error ${res.status}: ${detail}`);
   }
-  return res.json() as Promise<TRes>;
+  const data: unknown = await res.json();
+  // Guard against non-object responses (e.g. HTML error pages, null, bare arrays).
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`API error: unexpected response shape from ${path}`);
+  }
+  return data as TRes;
 }
 
 // ---------------------------------------------------------------------------

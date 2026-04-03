@@ -72,7 +72,10 @@ export function TrendView() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!topic.trim()) return;
+    if (!topic.trim()) {
+      setError("Topic / Method name is required.");
+      return;
+    }
     if (yearRange[0] > yearRange[1]) {
       setError("Start year must be ≤ end year.");
       return;
