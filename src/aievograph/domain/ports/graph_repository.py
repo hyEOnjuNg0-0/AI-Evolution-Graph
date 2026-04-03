@@ -31,6 +31,18 @@ class GraphRepositoryPort(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_paper_ids_by_year_range(
+        self, start_year: int, end_year: int, limit: int
+    ) -> list[str]:
+        """Return paper_ids of Paper nodes within [start_year, end_year], capped at limit.
+
+        Lighter than get_papers_by_year_range — no author join, no full object
+        deserialisation. Use when only IDs are needed (e.g. breakthrough detection
+        over a year window in the trend pipeline).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def create_method_relation(self, relation: MethodRelation) -> None:
         """Create a typed edge between two Method nodes (IMPROVES / EXTENDS / REPLACES)."""
         raise NotImplementedError

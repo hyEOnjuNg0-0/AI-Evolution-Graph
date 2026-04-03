@@ -24,6 +24,10 @@ from aievograph.infrastructure.neo4j_graph_repository import Neo4jGraphRepositor
 router = APIRouter(prefix="/api/trend", tags=["trend"])
 logger = logging.getLogger(__name__)
 
+# Cap for breakthrough detection in the trend pipeline.
+# Only IDs are needed — full Paper objects (with author data) are not loaded.
+_BREAKTHROUGH_PAPER_LIMIT = 1_000
+
 
 @router.post("", response_model=TrendResponse)
 def analyze_trend(
@@ -72,8 +76,11 @@ def analyze_trend(
     ]
 
     # Step 3: Evolution path (requires trend + breakthrough signals).
-    papers_in_window = graph_repo.get_papers_by_year_range(req.start_year, req.end_year)
-    paper_ids = [p.paper_id for p in papers_in_window]
+    # Fetch only paper IDs — author joins and full object deserialisation are
+    # unnecessary here; IDs alone are forwarded to breakthrough detection.
+    paper_ids = graph_repo.get_paper_ids_by_year_range(
+        req.start_year, req.end_year, limit=_BREAKTHROUGH_PAPER_LIMIT
+    )
 
     evolution_steps: list[EvolutionStep] = []
     method_scores: list[MethodScore] = []

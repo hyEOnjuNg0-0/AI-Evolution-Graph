@@ -135,6 +135,13 @@ RETURN seed_id, neighbor AS p, collect(a) AS authors, hop_dist
 LIMIT $limit
 """
 
+_GET_PAPER_IDS_BY_YEAR_RANGE = """
+MATCH (p:Paper)
+WHERE p.publication_year >= $start_year AND p.publication_year <= $end_year
+RETURN p.paper_id AS paper_id
+LIMIT $limit
+"""
+
 _GET_ALL_METHOD_NAMES = "MATCH (m:Method) RETURN m.name AS name ORDER BY m.name"
 
 # Re-point all edges from variant to canonical, then delete variant.
@@ -371,6 +378,18 @@ class Neo4jGraphRepository(GraphRepositoryPort):
         with self._driver.session() as session:
             result = session.run(cypher, paper_id=paper_id, limit=_MAX_RESULT_PAPERS)
             return [(_record_to_paper(record), record["hop_dist"]) for record in result]
+
+    def get_paper_ids_by_year_range(
+        self, start_year: int, end_year: int, limit: int
+    ) -> list[str]:
+        with self._driver.session() as session:
+            result = session.run(
+                _GET_PAPER_IDS_BY_YEAR_RANGE,
+                start_year=start_year,
+                end_year=end_year,
+                limit=limit,
+            )
+            return [record["paper_id"] for record in result]
 
     def get_citation_neighborhoods_batch(
         self, paper_ids: list[str], hops: int
