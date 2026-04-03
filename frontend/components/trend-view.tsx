@@ -108,7 +108,7 @@ export function TrendView() {
               Trend Momentum Analysis
             </CardTitle>
             <CardDescription>
-              CAGR·Shannon 엔트로피·채택 속도로 AI 방법론의 성장 모멘텀을 정량화합니다.
+              Quantify growth momentum of AI methods using CAGR, Shannon entropy, and adoption velocity.
             </CardDescription>
           </CardHeader>
           <CardContent>

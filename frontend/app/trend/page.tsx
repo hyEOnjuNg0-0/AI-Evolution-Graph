@@ -16,7 +16,7 @@ export default function TrendPage() {
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Trend Momentum Analysis</h1>
         <p className="text-sm text-muted-foreground">
-          CAGR·Shannon 엔트로피·채택 속도로 AI 방법론의 성장 모멘텀을 정량화합니다.
+          Quantify growth momentum of AI methods using CAGR, Shannon entropy, and adoption velocity.
         </p>
       </div>
       <TrendView />

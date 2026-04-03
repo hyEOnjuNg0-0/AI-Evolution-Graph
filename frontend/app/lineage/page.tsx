@@ -15,7 +15,7 @@ export default function LineagePage() {
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Research Lineage Exploration</h1>
         <p className="text-sm text-muted-foreground">
-          Keyword나 논문 제목으로 관련 연구 계보를 탐색하고 인용 그래프를 시각화합니다.
+          Search by keyword or paper title to explore related research lineages and visualise the citation graph.
         </p>
       </div>
       <MainView />

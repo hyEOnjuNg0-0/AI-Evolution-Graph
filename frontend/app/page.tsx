@@ -7,7 +7,7 @@ const FEATURES = [
     icon: GitBranchIcon,
     title: "Research Lineage Exploration",
     description:
-      "Keyword나 논문 제목으로 관련 연구의 계보를 탐색합니다. 의미 유사도와 인용 구조를 결합한 하이브리드 검색으로 핵심 논문을 시각화합니다.",
+      "Explore research lineages by keyword or paper title. Hybrid search combining semantic similarity and citation structure surfaces the most relevant papers.",
     label: "Explore",
   },
   {
@@ -15,7 +15,7 @@ const FEATURES = [
     icon: ZapIcon,
     title: "Breakthrough Detection",
     description:
-      "Kleinberg burst 분석과 중심성 이동을 결합해 특정 연구 분야의 구조적 전환점이 된 논문을 탐지합니다.",
+      "Detect structural inflection papers in a research field using Kleinberg burst analysis combined with centrality shift scoring.",
     label: "Detect",
   },
   {
@@ -23,7 +23,7 @@ const FEATURES = [
     icon: TrendingUpIcon,
     title: "Trend Momentum Analysis",
     description:
-      "CAGR·Shannon 엔트로피·채택 속도를 기반으로 AI 방법론의 성장 모멘텀을 정량화하고 진화 경로를 추적합니다.",
+      "Quantify growth momentum of AI methods using CAGR, Shannon entropy, and adoption velocity, and trace their evolution paths.",
     label: "Analyze",
   },
 ];
@@ -35,9 +35,9 @@ export default function Home() {
       <div className="flex flex-col items-center gap-3 text-center">
         <h1 className="text-4xl font-bold tracking-tight">AI EvoGraph</h1>
         <p className="max-w-lg text-base text-muted-foreground">
-          GraphRAG 기반 AI 논문 인용·방법론 진화 그래프 분석 플랫폼.
+          A GraphRAG-powered platform for analysing AI paper citations and method evolution graphs.
           <br />
-          연구 계보, 구조적 전환점, 확산 동력을 정량적으로 탐구하세요.
+          Quantitatively explore research lineages, structural inflection points, and diffusion dynamics.
         </p>
       </div>
 

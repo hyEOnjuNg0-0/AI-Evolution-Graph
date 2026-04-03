@@ -237,7 +237,7 @@ export function BreakthroughView() {
               Breakthrough Detection
             </CardTitle>
             <CardDescription>
-              Kleinberg burst 분석과 중심성 이동으로 구조적 전환점 논문을 탐지합니다.
+              Detect structural inflection papers using Kleinberg burst analysis and centrality shift scoring.
             </CardDescription>
           </CardHeader>
           <CardContent>

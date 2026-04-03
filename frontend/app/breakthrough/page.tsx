@@ -16,7 +16,7 @@ export default function BreakthroughPage() {
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Breakthrough Detection</h1>
         <p className="text-sm text-muted-foreground">
-          Kleinberg burst 분석과 중심성 이동으로 구조적 전환점 논문을 탐지합니다.
+          Detect structural inflection papers using Kleinberg burst analysis and centrality shift scoring.
         </p>
       </div>
       <BreakthroughView />
