@@ -40,3 +40,4 @@ class TrendResponse(BaseModel):
     yearly_scores: list[YearlyScore]
     evolution_path: list[EvolutionStep]
     method_scores: list[MethodScore]
+    evolution_error: str | None = None

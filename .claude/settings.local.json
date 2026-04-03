@@ -35,7 +35,10 @@
       "Bash(git check-ignore:*)",
       "Bash(git -C /c/AiEvoGraph/frontend rev-parse --git-dir)",
       "Bash(git rm:*)",
-      "Bash(node /c/AiEvoGraph/frontend/components/graph-view-panel.adversarial-test.ts)"
+      "Bash(node /c/AiEvoGraph/frontend/components/graph-view-panel.adversarial-test.ts)",
+      "Bash(/c/Users/ilimo/anaconda3/envs/evograph/python:*)",
+      "Bash(cp /tmp/report.md /c/AiEvoGraph/STEP64_ADVERSARIAL_AUDIT_REPORT.md)",
+      "Bash(cp /tmp/summary.txt /c/AiEvoGraph/STEP64_VULNERABILITY_SUMMARY.txt)"
     ]
   }
 }

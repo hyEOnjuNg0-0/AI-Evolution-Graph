@@ -690,14 +690,21 @@ export function GraphViewPanel({ lineageResult, trendResult }: GraphViewPanelPro
 
           <TabsContent value="evolution" className="mt-4">
             {trendResult ? (
-              <EvolutionPathView
-                evolutionPath={trendResult.evolution_path}
-                breakthroughScores={
-                  trendResult.method_scores.length > 0
-                    ? new Map(trendResult.method_scores.map((ms) => [ms.method, ms.score]))
-                    : undefined
-                }
-              />
+              <div className="flex flex-col gap-3">
+                {trendResult.evolution_error && (
+                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+                    Evolution path unavailable: {trendResult.evolution_error}
+                  </div>
+                )}
+                <EvolutionPathView
+                  evolutionPath={trendResult.evolution_path}
+                  breakthroughScores={
+                    trendResult.method_scores.length > 0
+                      ? new Map(trendResult.method_scores.map((ms) => [ms.method, ms.score]))
+                      : undefined
+                  }
+                />
+              </div>
             ) : (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                 Run a Trend Momentum analysis to view the evolution path.

@@ -68,12 +68,17 @@ def analyze_trend(
 
     top = trend_results[0]  # highest-scored matching method
 
-    # Build yearly usage scores from the normalized trend scores per year.
-    # MethodTrendScore does not carry raw yearly counts, so we synthesise
-    # a single summary row from the aggregate scores.
+    # Build per-year usage scores from the raw counts stored in MethodTrendScore.
+    # trend_score is repeated per row — it reflects the overall momentum signal,
+    # not a per-year normalised value (no per-year normalisation is defined in the spec).
     yearly_scores = [
-        YearlyScore(year=req.end_year, usage_count=0, score=top.trend_score)
+        YearlyScore(year=year, usage_count=count, score=top.trend_score)
+        for year, count in sorted(top.yearly_counts.items())
     ]
+    if not yearly_scores:
+        # No usage data in the window: return a single zero-count stub so the
+        # frontend always has at least one row to render.
+        yearly_scores = [YearlyScore(year=req.end_year, usage_count=0, score=top.trend_score)]
 
     # Step 3: Evolution path (requires trend + breakthrough signals).
     # Fetch only paper IDs — author joins and full object deserialisation are
@@ -84,6 +89,7 @@ def analyze_trend(
 
     evolution_steps: list[EvolutionStep] = []
     method_scores: list[MethodScore] = []
+    evolution_error: str | None = None
     if paper_ids:
         try:
             breakthroughs = breakthrough_svc.detect(
@@ -114,8 +120,14 @@ def analyze_trend(
                     MethodScore(method=m, score=s)
                     for m, s in top_path.influence_scores.items()
                 ]
-        except Exception:
-            logger.warning("Evolution path extraction failed for topic=%r", req.topic, exc_info=True)
+        except Exception as exc:
+            evolution_error = str(exc) or type(exc).__name__
+            logger.error(
+                "Evolution path extraction failed for topic=%r: %s",
+                req.topic,
+                evolution_error,
+                exc_info=True,
+            )
 
     logger.info(
         "Trend analysis topic=%r window=%d–%d → score=%.3f",
@@ -133,4 +145,5 @@ def analyze_trend(
         yearly_scores=yearly_scores,
         evolution_path=evolution_steps,
         method_scores=method_scores,
+        evolution_error=evolution_error,
     )

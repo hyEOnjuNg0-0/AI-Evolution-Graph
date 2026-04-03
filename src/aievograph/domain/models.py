@@ -237,6 +237,9 @@ class MethodTrendScore(BaseModel):
     entropy_score: float = Field(default=0.0, ge=0.0, le=1.0)
     adoption_velocity_score: float = Field(default=0.0, ge=0.0, le=1.0)
     trend_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    # Raw yearly paper-usage counts from the repository (year → count).
+    # Used by callers that need the time series, e.g. to build yearly_scores in the API response.
+    yearly_counts: dict[int, int] = Field(default_factory=dict)
 
 
 # EvolutionPath

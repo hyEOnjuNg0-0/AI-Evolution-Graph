@@ -131,6 +131,7 @@ export interface TrendResponse {
   yearly_scores: YearlyScore[];
   evolution_path: EvolutionStep[];
   method_scores: MethodScore[];
+  evolution_error: string | null;
 }
 
 export function analyzeTrend(req: TrendRequest): Promise<TrendResponse> {

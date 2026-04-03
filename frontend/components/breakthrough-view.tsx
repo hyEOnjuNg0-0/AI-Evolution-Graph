@@ -52,12 +52,17 @@ function BreakthroughBarChart({
   const svgW = PAD_L + candidates.length * (BAR_W + BAR_GAP) - BAR_GAP + PAD_R;
   const svgH = CHART_H + PAD_T + PAD_B;
 
-  const maxScore = Math.max(...candidates.map((c) => c.composite_score), 0.01);
+  const finiteScores = candidates
+    .map((c) => c.composite_score)
+    .filter((s) => Number.isFinite(s));
+  const maxScore = finiteScores.length > 0 ? Math.max(...finiteScores, 0.01) : 0.01;
 
   function barY(score: number) {
+    if (!Number.isFinite(score)) return PAD_T + CHART_H;
     return PAD_T + CHART_H - (score / maxScore) * CHART_H;
   }
   function barH(score: number) {
+    if (!Number.isFinite(score)) return 0;
     return (score / maxScore) * CHART_H;
   }
 

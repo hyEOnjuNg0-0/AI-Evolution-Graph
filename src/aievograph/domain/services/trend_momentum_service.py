@@ -319,6 +319,7 @@ class TrendMomentumService:
                 entropy_score=norm_entropy.get(name, 0.0),
                 adoption_velocity_score=norm_velocity.get(name, 0.0),
                 trend_score=norm_trend.get(name, 0.0),
+                yearly_counts=usage_series.get(name, {}),
             )
             for name in method_names
         ]
