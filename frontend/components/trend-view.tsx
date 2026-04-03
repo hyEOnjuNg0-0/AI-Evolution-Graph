@@ -34,8 +34,11 @@ interface ScoreCardProps {
 }
 
 function ScoreCard({ label, value, format, description, highlight }: ScoreCardProps) {
-  const display =
-    format === "percent" ? `${(value * 100).toFixed(1)}%` : value.toFixed(4);
+  const display = !Number.isFinite(value)
+    ? "—"
+    : format === "percent"
+      ? `${(value * 100).toFixed(1)}%`
+      : value.toFixed(4);
 
   return (
     <div
@@ -175,7 +178,9 @@ export function TrendView() {
                   value={yearRange}
                   onValueChange={(val) => {
                     const v = Array.isArray(val) ? [...val] : [val];
-                    if (v.length >= 2 && v[0] <= v[1]) setYearRange(v);
+                    const lo = v[0] ?? yearRange[0];
+                    const hi = v[1] ?? yearRange[1];
+                    if (lo <= hi) setYearRange([lo, hi]);
                   }}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">

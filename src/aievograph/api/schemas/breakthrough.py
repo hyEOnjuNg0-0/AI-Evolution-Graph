@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field, model_validator
 
 class BreakthroughRequest(BaseModel):
     field: str = Field(..., description="Research field or keyword to analyze")
-    start_year: int = Field(..., description="Time window start year")
-    end_year: int = Field(..., description="Time window end year")
+    start_year: int = Field(..., ge=1930, le=2030, description="Time window start year")
+    end_year: int = Field(..., ge=1930, le=2030, description="Time window end year")
     top_k: int = Field(10, ge=1, le=50, description="Max breakthrough candidates to return")
 
     @model_validator(mode="after")

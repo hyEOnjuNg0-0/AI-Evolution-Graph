@@ -51,8 +51,13 @@ def analyze_trend(
     topic_lower = req.topic.lower()
     matched = [m for m in all_method_names if topic_lower in m.lower()]
 
-    # Fall back to the raw topic if no stored methods match (service will return score=0).
-    method_names = matched if matched else [req.topic]
+    if not matched:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No methods found matching topic: {req.topic!r}",
+        )
+
+    method_names = matched
 
     try:
         trend_results = trend_svc.score(
@@ -64,7 +69,10 @@ def analyze_trend(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     if not trend_results:
-        raise HTTPException(status_code=404, detail=f"No trend data found for topic: {req.topic!r}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Methods matched {req.topic!r} but no usage data found in {req.start_year}–{req.end_year}",
+        )
 
     top = trend_results[0]  # highest-scored matching method
 
