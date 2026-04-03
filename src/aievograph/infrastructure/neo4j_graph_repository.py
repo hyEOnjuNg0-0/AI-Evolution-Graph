@@ -118,6 +118,23 @@ LIMIT $limit
 
 _MAX_RESULT_PAPERS = 1000
 
+# Safety cap for batched neighborhood expansion across all seeds.
+# With hops=1 and 200 seeds, ~50 neighbours/seed ≈ 10 000 rows in practice.
+_MAX_BATCH_RESULT_PAPERS = 50_000
+
+# hops embedded as a literal (Cypher does not support parameterised path lengths).
+# $paper_ids is a list of seed IDs; each row carries seed_id so results can be grouped.
+_GET_NEIGHBORHOODS_BATCH_TEMPLATE = """\
+UNWIND $paper_ids AS seed_id
+MATCH (seed:Paper {{paper_id: seed_id}})
+MATCH path = (seed)-[:CITES*1..{hops}]-(neighbor:Paper)
+WHERE neighbor.paper_id <> seed_id
+WITH seed_id, neighbor, min(length(path)) AS hop_dist
+OPTIONAL MATCH (neighbor)-[:WRITTEN_BY]->(a:Author)
+RETURN seed_id, neighbor AS p, collect(a) AS authors, hop_dist
+LIMIT $limit
+"""
+
 _GET_ALL_METHOD_NAMES = "MATCH (m:Method) RETURN m.name AS name ORDER BY m.name"
 
 # Re-point all edges from variant to canonical, then delete variant.
@@ -354,6 +371,22 @@ class Neo4jGraphRepository(GraphRepositoryPort):
         with self._driver.session() as session:
             result = session.run(cypher, paper_id=paper_id, limit=_MAX_RESULT_PAPERS)
             return [(_record_to_paper(record), record["hop_dist"]) for record in result]
+
+    def get_citation_neighborhoods_batch(
+        self, paper_ids: list[str], hops: int
+    ) -> dict[str, list[tuple[Paper, int]]]:
+        if not paper_ids:
+            return {}
+        cypher = _GET_NEIGHBORHOODS_BATCH_TEMPLATE.format(hops=int(hops))
+        result_map: dict[str, list[tuple[Paper, int]]] = {}
+        with self._driver.session() as session:
+            result = session.run(cypher, paper_ids=paper_ids, limit=_MAX_BATCH_RESULT_PAPERS)
+            for record in result:
+                seed_id: str = record["seed_id"]
+                paper = _record_to_paper(record)
+                hop_dist: int = record["hop_dist"]
+                result_map.setdefault(seed_id, []).append((paper, hop_dist))
+        return result_map
 
     def get_all_method_names(self) -> list[str]:
         with self._driver.session() as session:

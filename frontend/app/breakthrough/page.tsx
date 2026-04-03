@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ChevronLeftIcon, ZapIcon } from "lucide-react";
+import { ChevronLeftIcon } from "lucide-react";
+
+import { BreakthroughView } from "@/components/breakthrough-view";
 
 export default function BreakthroughPage() {
   return (
@@ -17,10 +19,7 @@ export default function BreakthroughPage() {
           Kleinberg burst 분석과 중심성 이동으로 구조적 전환점 논문을 탐지합니다.
         </p>
       </div>
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/40 py-24 text-muted-foreground">
-        <ZapIcon className="size-8 opacity-40" />
-        <p className="text-sm">Step 6.4에서 구현 예정</p>
-      </div>
+      <BreakthroughView />
     </main>
   );
 }

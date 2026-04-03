@@ -69,6 +69,18 @@ class GraphRepositoryPort(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_citation_neighborhoods_batch(
+        self, paper_ids: list[str], hops: int
+    ) -> dict[str, list[tuple["Paper", int]]]:
+        """Return citation neighborhoods for multiple seeds in a single query.
+
+        Returns a mapping of seed_paper_id → [(neighbor_Paper, min_hop_distance)].
+        Seeds not found in the graph or with no neighbors are absent from the result.
+        Implementations may cap total result size internally (e.g. LIMIT).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_all_method_names(self) -> list[str]:
         """Return all Method node names stored in the graph, ordered alphabetically."""
         raise NotImplementedError

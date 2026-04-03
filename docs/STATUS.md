@@ -8,7 +8,7 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-04-01 (Step 6.3: GraphViewPanel 구현 — Citation Graph SVG 시각화, Evolution Path 수평 DAG, 노드 클릭 상세 패널, 연도 필터 슬라이더)
+> 마지막 업데이트: 2026-04-03 (Step 6.4: Insight Panel 구현 — Breakthrough Detection (쿼리 폼 + SVG bar 차트 + 후보 테이블), Trend Momentum Analysis (쿼리 폼 + 스코어 분해 카드 + GraphViewPanel 연동))
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
@@ -19,7 +19,7 @@
 | 3 | Layer B — Retrieval | 🟢 완료 | 100% (Step 3.3 완료) |
 | 4 | Layer C — Ranking | 🟢 완료 | 100% (Step 4.1, 4.2, 4.3 완료) |
 | 5 | Layer D — Analytical | 🟢 완료 | 100% (Step 5.1, 5.2, 5.3 완료) |
-| 6 | Layer E — Interface | 🟡 진행 중 | 60% (Step 6.1, 6.2, 6.3 완료) |
+| 6 | Layer E — Interface | 🟡 진행 중 | 80% (Step 6.1, 6.2, 6.3, 6.4 완료) |
 | 7 | 통합 및 실험 | 🔴 미착수 | 0% |
 
 **상태 범례**: 🔴 미착수 · 🟡 진행 중 · 🟢 완료 · ⏸️ 보류

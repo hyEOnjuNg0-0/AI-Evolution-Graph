@@ -38,16 +38,16 @@
 
 **기능 ②: Breakthrough Detection**
 
-- [ ] field, start_year / end_year, top_k 입력
-- [ ] 결과 테이블: title, year, burst_score, centrality_shift, composite_score
-- [ ] composite_score 기준 bar 차트 (top-k 시각화)
-- [ ] 선택한 후보를 Graph View에 하이라이트 (노드 색상 변경)
+- [x] field, start_year / end_year, top_k 입력
+- [x] 결과 테이블: title, year, burst_score, centrality_shift, composite_score
+- [x] composite_score 기준 bar 차트 (top-k 시각화)
+- [ ] 선택한 후보를 Graph View에 하이라이트 (노드 색상 변경) → Step 6.5 전역 상태 관리에서 처리 예정
 
 **기능 ③: Trend Momentum Analysis**
 
-- [ ] topic, start_year / end_year 입력
-- [ ] 스코어 분해 카드: CAGR / Entropy / Adoption Velocity / 종합 momentum_score
-- [ ] evolution_path → 6.3 Graph View로 전달 (공유 상태)
+- [x] topic, start_year / end_year 입력
+- [x] 스코어 분해 카드: CAGR / Entropy / Adoption Velocity / 종합 momentum_score
+- [x] evolution_path → 6.3 Graph View로 전달 (공유 상태)
 
 ### Step 6.5 — 통합 레이아웃 및 Evidence Panel
 

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ChevronLeftIcon, TrendingUpIcon } from "lucide-react";
+import { ChevronLeftIcon } from "lucide-react";
+
+import { TrendView } from "@/components/trend-view";
 
 export default function TrendPage() {
   return (
@@ -17,10 +19,7 @@ export default function TrendPage() {
           CAGR·Shannon 엔트로피·채택 속도로 AI 방법론의 성장 모멘텀을 정량화합니다.
         </p>
       </div>
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/40 py-24 text-muted-foreground">
-        <TrendingUpIcon className="size-8 opacity-40" />
-        <p className="text-sm">Step 6.4에서 구현 예정</p>
-      </div>
+      <TrendView />
     </main>
   );
 }

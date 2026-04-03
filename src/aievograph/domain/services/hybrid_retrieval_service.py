@@ -19,7 +19,7 @@ Pipeline:
 import logging
 from typing import Literal
 
-from aievograph.domain.models import ScoredPaper, Subgraph
+from aievograph.domain.models import Paper, ScoredPaper, Subgraph
 from aievograph.domain.ports.graph_repository import GraphRepositoryPort
 from aievograph.domain.services.graph_retrieval_service import _MAX_HOPS
 from aievograph.domain.services.vector_retrieval_service import VectorRetrievalService
@@ -127,12 +127,11 @@ class HybridRetrievalService:
             semantic_scores[pid] = sp.score
             graph_distances[pid] = 0  # seeds are at hop distance 0
 
-        # Step 2: Graph expansion from each seed.
-        for seed_sp in vector_results:
-            seed_id = seed_sp.paper.paper_id
-            neighbors = self._graph_repo.get_citation_neighborhood_with_distances(
-                seed_id, hops
-            )
+        # Step 2: Graph expansion — single batched Neo4j query for all seeds.
+        # Replaces the previous N+1 loop (one query per seed) with one round-trip.
+        seed_ids = [sp.paper.paper_id for sp in vector_results]
+        batch_neighbors = self._graph_repo.get_citation_neighborhoods_batch(seed_ids, hops)
+        for neighbors in batch_neighbors.values():
             for neighbor_paper, hop_dist in neighbors:
                 pid = neighbor_paper.paper_id
                 # If the paper is already present as a vector seed, keep the vector
