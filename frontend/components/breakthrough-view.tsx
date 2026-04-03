@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDownIcon, ZapIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, ZapIcon } from "lucide-react";
 
 import {
   detectBreakthroughs,
@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
+const SEMANTIC_SCHOLAR_BASE = "https://www.semanticscholar.org/paper/";
 const YEAR_MIN = 2011;
 const YEAR_MAX = 2025;
 
@@ -417,9 +418,20 @@ export function BreakthroughView() {
           {selected && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ZapIcon className="size-4 text-amber-500" />
-                  {selected.title}
+                <CardTitle className="flex items-start justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <ZapIcon className="size-4 shrink-0 text-amber-500" />
+                    {selected.title}
+                  </span>
+                  <a
+                    href={`${SEMANTIC_SCHOLAR_BASE}${selected.paper_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Open in Semantic Scholar"
+                  >
+                    <ExternalLinkIcon className="size-4" />
+                  </a>
                 </CardTitle>
                 {selected.year && (
                   <CardDescription>{selected.year}</CardDescription>
