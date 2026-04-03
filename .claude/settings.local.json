@@ -38,7 +38,11 @@
       "Bash(node /c/AiEvoGraph/frontend/components/graph-view-panel.adversarial-test.ts)",
       "Bash(/c/Users/ilimo/anaconda3/envs/evograph/python:*)",
       "Bash(cp /tmp/report.md /c/AiEvoGraph/STEP64_ADVERSARIAL_AUDIT_REPORT.md)",
-      "Bash(cp /tmp/summary.txt /c/AiEvoGraph/STEP64_VULNERABILITY_SUMMARY.txt)"
+      "Bash(cp /tmp/summary.txt /c/AiEvoGraph/STEP64_VULNERABILITY_SUMMARY.txt)",
+      "Bash(gh run:*)",
+      "Bash(gh.exe run:*)",
+      "Bash(powershell.exe -Command \"gh run list --repo hyEOnjuNg0-0/AI-Evolution-Graph --limit 5 --json databaseId,status,conclusion,displayTitle,createdAt\")",
+      "WebFetch(domain:api.github.com)"
     ]
   }
 }

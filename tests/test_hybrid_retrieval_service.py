@@ -164,7 +164,7 @@ class TestSearchScoring:
         sp = _make_scored_paper("seed", score=0.8)
         vector_service.search.return_value = [sp]
         neighbor = (_make_paper("neighbor"), 1)
-        graph_repo.get_citation_neighborhood_with_distances.return_value = [neighbor]
+        graph_repo.get_citation_neighborhoods_batch.return_value = {"seed": [neighbor]}
 
         result = service.search("query", query_type="balanced", alpha=0.5, beta=0.5)
 
@@ -199,10 +199,10 @@ class TestSearchScoring:
         sp2 = _make_scored_paper("seed2", score=0.5)
         vector_service.search.return_value = [sp1, sp2]
         # "common" appears at hop 2 from seed1 and hop 1 from seed2 → min = 1
-        graph_repo.get_citation_neighborhood_with_distances.side_effect = [
-            [(_make_paper("common"), 2)],  # seed1 neighbors
-            [(_make_paper("common"), 1)],  # seed2 neighbors
-        ]
+        graph_repo.get_citation_neighborhoods_batch.return_value = {
+            "seed1": [(_make_paper("common"), 2)],
+            "seed2": [(_make_paper("common"), 1)],
+        }
 
         result = service.search("query", query_type="balanced", alpha=0.5, beta=0.5)
 
