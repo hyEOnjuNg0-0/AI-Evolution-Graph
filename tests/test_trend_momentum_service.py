@@ -39,6 +39,12 @@ class StubMethodTrendRepo(MethodTrendRepositoryPort):
     def get_venue_distribution(self, method_names, year_start, year_end):
         return self._venues
 
+    def get_all_yearly_usage_counts(self, year_start, year_end):
+        return self._usage
+
+    def get_all_venue_distributions(self, year_start, year_end):
+        return self._venues
+
 
 # ---------------------------------------------------------------------------
 # _compute_cagr  (C1: exponent must use actual data span, not window width)
@@ -302,3 +308,31 @@ class TestScore:
         missing = next(r for r in result if r.method_name == "missing")
         assert missing.cagr_score == 0.0
         assert missing.trend_score == 0.0
+
+    # --- Discovery mode (method_names=None) ---
+
+    def test_discovery_mode_returns_all_repo_methods(self):
+        usage = {"A": {2019: 1, 2023: 10}, "B": {2019: 8, 2023: 2}, "C": {}}
+        svc = self._svc(usage=usage)
+        result = svc.score(None, year_end=2023)
+        returned_names = {r.method_name for r in result}
+        assert returned_names == {"A", "B", "C"}
+
+    def test_discovery_mode_no_data_returns_empty(self):
+        svc = self._svc()
+        result = svc.score(None, year_end=2023)
+        assert result == []
+
+    def test_discovery_mode_scores_in_unit_interval(self):
+        usage = {"X": {2019: 2, 2023: 20}, "Y": {2019: 5, 2023: 5}}
+        venues = {"X": {"NeurIPS": 3, "ICML": 3}, "Y": {"NeurIPS": 6}}
+        svc = self._svc(usage=usage, venues=venues)
+        result = svc.score(None, year_end=2023)
+        for r in result:
+            assert 0.0 <= r.trend_score <= 1.0
+
+    def test_discovery_mode_top_k_limits_output(self):
+        usage = {f"m{i}": {2019: i, 2023: i * 2} for i in range(1, 10)}
+        svc = self._svc(usage=usage)
+        result = svc.score(None, year_end=2023, top_k=3)
+        assert len(result) == 3

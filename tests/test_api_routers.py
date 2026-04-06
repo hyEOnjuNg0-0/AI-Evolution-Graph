@@ -214,35 +214,36 @@ class TestTrendRouter:
 
     def test_returns_trend_scores(self, client):
         resp = client.post("/api/trend", json={
-            "topic": "transformer",
             "start_year": 2018,
             "end_year": 2022,
         })
         assert resp.status_code == 200
         body = resp.json()
-        assert body["topic"] == "transformer"
-        assert body["momentum_score"] == pytest.approx(0.72)
+        assert body["start_year"] == 2018
+        assert body["end_year"] == 2022
+        assert len(body["methods"]) == 1
+        assert body["methods"][0]["method_name"] == "transformer"
+        assert body["methods"][0]["momentum_score"] == pytest.approx(0.72)
 
     def test_reversed_year_range_returns_422(self, client):
         resp = client.post("/api/trend", json={
-            "topic": "transformer",
             "start_year": 2025,
             "end_year": 2018,
         })
         assert resp.status_code == 422
 
-    def test_missing_topic_returns_422(self, client):
-        resp = client.post("/api/trend", json={"start_year": 2018, "end_year": 2022})
+    def test_missing_required_year_returns_422(self, client):
+        resp = client.post("/api/trend", json={"start_year": 2018})
         assert resp.status_code == 422
 
-    def test_no_trend_data_returns_404(self, client):
-        """When TrendMomentumService finds no results, endpoint returns 404."""
+    def test_no_trend_data_returns_empty_methods(self, client):
+        """When TrendMomentumService finds no results, endpoint returns 200 with empty list."""
         trend = MagicMock()
         trend.score.return_value = []
         app.dependency_overrides[get_trend_service] = lambda: trend
         resp = client.post("/api/trend", json={
-            "topic": "unknown_method_xyz",
             "start_year": 2018,
             "end_year": 2022,
         })
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        assert resp.json()["methods"] == []
