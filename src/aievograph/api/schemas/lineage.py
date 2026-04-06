@@ -28,6 +28,8 @@ class PaperNode(BaseModel):
     authors: list[str]
     citation_count: int
     score: float | None = None
+    semantic_similarity: float | None = None  # cosine similarity component of hybrid score
+    graph_proximity: float | None = None      # graph distance component of hybrid score
 
 
 class CitationEdge(BaseModel):

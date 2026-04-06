@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { SearchIcon, BookOpenIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 
-import { exploreLineage, type LineageResponse, type QueryType } from "@/lib/api";
+import { exploreLineage, type LineageResponse, type PaperNode, type QueryType } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,9 +29,13 @@ const QUERY_TYPE_OPTIONS: { value: QueryType; label: string; description: string
 interface LineageQueryPanelProps {
   /** Called with the API response each time a search completes successfully. */
   onResult?: (result: LineageResponse) => void;
+  /** Called when the user selects (or deselects) a paper from the results list. */
+  onSelectPaper?: (paper: PaperNode | null) => void;
+  /** Currently selected paper ID (controlled from parent). */
+  selectedPaperId?: string | null;
 }
 
-export function LineageQueryPanel({ onResult }: LineageQueryPanelProps = {}) {
+export function LineageQueryPanel({ onResult, onSelectPaper, selectedPaperId }: LineageQueryPanelProps = {}) {
   const [seed, setSeed] = useState("");
   const [queryType, setQueryType] = useState<QueryType>("balanced");
   const [hopDepth, setHopDepth] = useState(2);
@@ -259,14 +263,25 @@ export function LineageQueryPanel({ onResult }: LineageQueryPanelProps = {}) {
             <span className="font-medium text-foreground">{result.edges.length}</span> citation edges
           </p>
           <div className="flex flex-col gap-2">
-            {result.papers.map((paper, idx) => (
-              <Card key={paper.paper_id} size="sm">
-                <CardContent className="flex items-start justify-between gap-3 pt-3 pb-3">
+            {result.papers.map((paper, idx) => {
+              const isSelected = paper.paper_id === selectedPaperId;
+              return (
+                <button
+                  key={paper.paper_id}
+                  type="button"
+                  onClick={() => onSelectPaper?.(isSelected ? null : paper)}
+                  className={[
+                    "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors w-full",
+                    isSelected
+                      ? "border-ring bg-accent text-accent-foreground"
+                      : "border-border hover:bg-muted",
+                  ].join(" ")}
+                >
                   <span className="mt-0.5 shrink-0 text-xs font-mono text-muted-foreground w-5 text-right">
                     {idx + 1}
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <p className="font-medium leading-snug line-clamp-2">{paper.title}</p>
+                    <p className="font-medium leading-snug line-clamp-2 text-sm">{paper.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {paper.authors.slice(0, 3).join(", ")}
                       {paper.authors.length > 3 ? " et al." : ""}
@@ -279,9 +294,9 @@ export function LineageQueryPanel({ onResult }: LineageQueryPanelProps = {}) {
                       {paper.score.toFixed(3)}
                     </Badge>
                   )}
-                </CardContent>
-              </Card>
-            ))}
+                </button>
+              );
+            })}
           </div>
 
           {result.edges.length > 0 && (

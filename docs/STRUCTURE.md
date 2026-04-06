@@ -209,7 +209,8 @@ AiEvoGraph/
 │   │   ├── ui/                              # ShadCN UI primitives (button, card, input, …)
 │   │   ├── lineage-query-panel.tsx          # Step 6.2: Research Lineage Exploration Query Panel
 │   │   ├── graph-view-panel.tsx             # Step 6.3: Citation Graph SVG + Evolution Path DAG
-│   │   ├── main-view.tsx                    # Step 6.3: Client shell — shared lineage/trend state
+│   │   ├── main-view.tsx                    # Step 6.5: 3-panel shell — lineage query | graph | evidence (shared selectedPaper state)
+│   │   ├── evidence-panel.tsx               # Step 6.5: Evidence Panel — hybrid score breakdown + Semantic Scholar link
 │   │   ├── breakthrough-view.tsx            # Step 6.4: Breakthrough Detection UI (form + bar chart + table)
 │   │   └── trend-view.tsx                   # Step 6.4: Trend Momentum Analysis UI (form + score cards + GraphViewPanel)
 │   ├── lib/

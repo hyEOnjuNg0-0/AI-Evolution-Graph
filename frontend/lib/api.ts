@@ -51,6 +51,8 @@ export interface PaperNode {
   authors: string[];
   citation_count: number;
   score: number | null;
+  semantic_similarity: number | null;
+  graph_proximity: number | null;
 }
 
 export interface CitationEdge {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLinkIcon } from "lucide-react";
 
 import {
   type CitationEdge,
@@ -106,7 +105,6 @@ function computeForceLayout(
 const SVG_W = 700;
 const SVG_H = 420;
 const NODE_R = 22;
-const SEMANTIC_SCHOLAR_BASE = "https://www.semanticscholar.org/paper/";
 // Above this node count, force-layout iterations are reduced; a warning is shown in the UI.
 const FORCE_LAYOUT_WARN_THRESHOLD = 25;
 
@@ -124,9 +122,13 @@ function scoreToFill(score: number | null): string {
 interface CitationGraphViewProps {
   papers: PaperNode[];
   edges: CitationEdge[];
+  selectedPaperId: string | null;
+  onSelectPaper: (paper: PaperNode | null) => void;
+  /** Paper IDs to mark with an amber border (e.g. breakthrough candidates). */
+  highlightedPaperIds?: Set<string>;
 }
 
-function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
+function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, highlightedPaperIds }: CitationGraphViewProps) {
   const years = papers.map((p) => p.year).filter((y): y is number => y !== null);
   const minYear = years.length ? Math.min(...years) : 2011;
   const maxYear = years.length ? Math.max(...years) : 2025;
@@ -135,7 +137,6 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
   const hasRange = years.length > 0 && minYear < maxYear;
 
   const [yearRange, setYearRange] = useState<[number, number]>([minYear, maxYear]);
-  const [selected, setSelected] = useState<PaperNode | null>(null);
 
   // Reset year range when the data's year bounds change (e.g., query switches from
   // single-year to multi-year results while the first paper ID stays the same)
@@ -156,13 +157,12 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
     [visiblePapers]
   );
 
-  // Clear selection whenever the selected paper is no longer in the visible set
-  // (covers year-filter exclusion and result-set replacement in one check)
+  // When the selected paper is filtered out by the year slider, deselect it in the parent.
   useEffect(() => {
-    if (selected && !visibleIds.has(selected.paper_id)) {
-      setSelected(null);
+    if (selectedPaperId && !visibleIds.has(selectedPaperId)) {
+      onSelectPaper(null);
     }
-  }, [visibleIds, selected]);
+  }, [visibleIds, selectedPaperId, onSelectPaper]);
 
   const visibleEdges = useMemo(
     () => edges.filter((e) => visibleIds.has(e.source_id) && visibleIds.has(e.target_id)),
@@ -288,27 +288,33 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
           {visiblePapers.map((paper) => {
             const pos = layout.get(paper.paper_id);
             if (!pos) return null;
-            const isSelected = selected?.paper_id === paper.paper_id;
+            const isSelected = paper.paper_id === selectedPaperId;
+            // Breakthrough candidates get amber fill; selected overrides with normal fill + red stroke.
+            const isHighlighted = highlightedPaperIds?.has(paper.paper_id) ?? false;
+            const fill = isHighlighted && !isSelected
+              ? "hsl(43 96% 75%)"
+              : scoreToFill(paper.score);
+            const stroke = isSelected
+              ? "hsl(0 72% 51%)"
+              : isHighlighted
+                ? "hsl(43 96% 45%)"
+                : "hsl(220 14% 85%)";
+            const strokeWidth = isSelected || isHighlighted ? 2.5 : 1.5;
             return (
               <g
                 key={paper.paper_id}
                 transform={`translate(${pos.x},${pos.y})`}
                 style={{ cursor: "pointer" }}
-                onClick={() => setSelected(isSelected ? null : paper)}
+                onClick={() => onSelectPaper(isSelected ? null : paper)}
               >
-                <circle
-                  r={NODE_R}
-                  fill={scoreToFill(paper.score)}
-                  stroke={isSelected ? "hsl(0 72% 51%)" : "hsl(220 14% 85%)"}
-                  strokeWidth={isSelected ? 2.5 : 1.5}
-                />
+                <circle r={NODE_R} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
                 {/* Rank label inside node (P1 = highest score) */}
                 <text
                   textAnchor="middle"
                   dominantBaseline="central"
                   fontSize={9}
                   fontWeight={600}
-                  fill="white"
+                  fill={isHighlighted && !isSelected ? "hsl(43 96% 20%)" : "white"}
                   style={{ pointerEvents: "none", userSelect: "none" }}
                 >
                   {rankLabel.get(paper.paper_id)}
@@ -318,36 +324,6 @@ function CitationGraphView({ papers, edges }: CitationGraphViewProps) {
           })}
         </svg>
       </div>
-
-      {/* Selected paper detail panel */}
-      {selected && (
-        <div className="rounded-lg border bg-card px-4 py-3 text-sm ring-1 ring-foreground/10">
-          <div className="flex items-start justify-between gap-2">
-            <p className="font-medium leading-snug">{selected.title}</p>
-            <a
-              href={`${SEMANTIC_SCHOLAR_BASE}${selected.paper_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Open in Semantic Scholar"
-            >
-              <ExternalLinkIcon className="size-4" />
-            </a>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {selected.authors.slice(0, 3).join(", ")}
-            {selected.authors.length > 3 ? " et al." : ""}
-            {selected.year ? ` · ${selected.year}` : ""}
-            {` · ${selected.citation_count.toLocaleString()} citations`}
-          </p>
-          {selected.score !== null && (
-            <p className="mt-1 text-xs">
-              <span className="text-muted-foreground">Hybrid score: </span>
-              <span className="font-mono font-medium">{selected.score.toFixed(4)}</span>
-            </p>
-          )}
-        </div>
-      )}
 
       <p className="text-center text-xs text-muted-foreground">
         {visiblePapers.length} nodes · {visibleEdges.length} edges · click a node for details
@@ -646,9 +622,13 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
 export interface GraphViewPanelProps {
   lineageResult: LineageResponse | null;
   trendResult: TrendResponse | null;
+  selectedPaperId?: string | null;
+  onSelectPaper?: (paper: PaperNode | null) => void;
+  /** Paper IDs to mark with amber highlighting (e.g. breakthrough candidates). */
+  highlightedPaperIds?: Set<string>;
 }
 
-export function GraphViewPanel({ lineageResult, trendResult }: GraphViewPanelProps) {
+export function GraphViewPanel({ lineageResult, trendResult, selectedPaperId, onSelectPaper, highlightedPaperIds }: GraphViewPanelProps) {
   if (!lineageResult && !trendResult) {
     return (
       <Card>
@@ -679,11 +659,14 @@ export function GraphViewPanel({ lineageResult, trendResult }: GraphViewPanelPro
 
           <TabsContent value="citation" className="mt-4">
             {lineageResult && (
-              // Key resets internal state (year range, selection) when the query result changes
+              // Key resets internal state (year range) when the query result changes
               <CitationGraphView
                 key={lineageResult.papers[0]?.paper_id ?? "empty"}
                 papers={lineageResult.papers}
                 edges={lineageResult.edges}
+                selectedPaperId={selectedPaperId ?? null}
+                onSelectPaper={onSelectPaper ?? (() => undefined)}
+                highlightedPaperIds={highlightedPaperIds}
               />
             )}
           </TabsContent>

@@ -135,16 +135,23 @@ class Citation(BaseModel):
 
 # ScoredPaper
 #  ├ paper
-#  └ score
+#  ├ score
+#  ├ semantic_sim  (optional — set by HybridRetrievalService)
+#  └ graph_prox    (optional — set by HybridRetrievalService)
 class ScoredPaper(BaseModel):
     """A Paper paired with a numeric ranking score.
 
     Used across multiple ranking layers (semantic similarity, centrality, etc.).
     The score semantics depend on the producing service; ge=0.0 is the only invariant.
+
+    semantic_sim and graph_prox are optionally populated by HybridRetrievalService to
+    expose the individual score components for Evidence Panel display in Layer E.
     """
 
     paper: "Paper"
     score: float = Field(..., ge=0.0)
+    semantic_sim: float | None = None  # cosine similarity from vector search (0–1)
+    graph_prox: float | None = None    # 1/hop_dist from graph expansion (0–1)
 
 
 # Subgraph

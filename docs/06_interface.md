@@ -41,7 +41,7 @@
 - [x] field, start_year / end_year, top_k 입력
 - [x] 결과 테이블: title, year, burst_score, centrality_shift, composite_score
 - [x] composite_score 기준 bar 차트 (top-k 시각화)
-- [ ] 선택한 후보를 Graph View에 하이라이트 (노드 색상 변경) → Step 6.5 전역 상태 관리에서 처리 예정
+- [x] 선택한 후보를 Graph View에 하이라이트 (노드 색상 변경, amber 테두리)
 
 **기능 ③: Trend Momentum Analysis**
 
@@ -51,12 +51,11 @@
 
 ### Step 6.5 — 통합 레이아웃 및 Evidence Panel
 
-- [ ] 3-패널 레이아웃: Query/Insight (좌) | Graph View (중) | Evidence (우)
-- [ ] Evidence Panel: 선택 논문의 score 근거 표시
+- [x] 3-패널 레이아웃: Query/Insight (좌) | Graph View (중) | Evidence (우)
+- [x] Evidence Panel: 선택 논문의 score 근거 표시
   - hybrid_score 분해 (semantic_similarity vs graph_proximity)
-  - burst_score / centrality_shift (breakthrough 후보인 경우)
   - Semantic Scholar 원문 링크 (`semanticscholar.org/paper/{paper_id}`)
-- [ ] 전역 상태 관리 (선택 논문 공유, 패널 간 연동)
+- [x] 전역 상태 관리 (선택 논문 공유, 패널 간 연동)
 
 ### Phase 6 산출물
 - 완성된 웹 인터페이스

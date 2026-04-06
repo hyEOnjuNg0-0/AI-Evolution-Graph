@@ -57,6 +57,8 @@ def explore_lineage(
             authors=[a.name for a in sp.paper.authors],
             citation_count=sp.paper.citation_count,
             score=sp.score,
+            semantic_similarity=sp.semantic_sim,
+            graph_proximity=sp.graph_prox,
         )
         for sp in scored_papers
     ]

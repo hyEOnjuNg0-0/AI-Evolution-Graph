@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDownIcon, ExternalLinkIcon, ZapIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDownIcon, ZapIcon } from "lucide-react";
 
 import {
   detectBreakthroughs,
+  exploreLineage,
   type BreakthroughCandidate,
   type BreakthroughResponse,
+  type LineageResponse,
 } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,8 +22,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { GraphViewPanel } from "@/components/graph-view-panel";
+import { EvidencePanel, type BreakthroughInfo } from "@/components/evidence-panel";
 
-const SEMANTIC_SCHOLAR_BASE = "https://www.semanticscholar.org/paper/";
 const YEAR_MIN = 2011;
 const YEAR_MAX = 2025;
 
@@ -31,13 +34,13 @@ const YEAR_MAX = 2025;
 
 interface BreakthroughBarChartProps {
   candidates: BreakthroughCandidate[];
-  selected: BreakthroughCandidate | null;
-  onSelect: (c: BreakthroughCandidate | null) => void;
+  selectedPaperId: string | null;
+  onSelect: (paperId: string | null) => void;
 }
 
 function BreakthroughBarChart({
   candidates,
-  selected,
+  selectedPaperId,
   onSelect,
 }: BreakthroughBarChartProps) {
   if (candidates.length === 0) return null;
@@ -58,7 +61,6 @@ function BreakthroughBarChart({
     .filter((s) => Number.isFinite(s));
   const maxScore = finiteScores.length > 0 ? Math.max(...finiteScores) : 0;
 
-  // All scores are zero (or non-finite): chart would render blank — show text instead.
   if (maxScore <= 0) {
     return (
       <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
@@ -129,12 +131,12 @@ function BreakthroughBarChart({
           const x = PAD_L + i * (BAR_W + BAR_GAP);
           const h = barH(c.composite_score);
           const y = barY(c.composite_score);
-          const isSelected = selected?.paper_id === c.paper_id;
+          const isSelected = c.paper_id === selectedPaperId;
           return (
             <g
               key={c.paper_id}
               style={{ cursor: "pointer" }}
-              onClick={() => onSelect(isSelected ? null : c)}
+              onClick={() => onSelect(isSelected ? null : c.paper_id)}
             >
               <rect
                 x={x}
@@ -146,7 +148,6 @@ function BreakthroughBarChart({
                 stroke={isSelected ? "hsl(220 70% 35%)" : "none"}
                 strokeWidth={1.5}
               />
-              {/* Score label above bar (only if bar is tall enough) */}
               {h > 14 && (
                 <text
                   x={x + BAR_W / 2}
@@ -159,7 +160,6 @@ function BreakthroughBarChart({
                   {c.composite_score.toFixed(2)}
                 </text>
               )}
-              {/* Rank label below bar */}
               <text
                 x={x + BAR_W / 2}
                 y={PAD_T + CHART_H + 6}
@@ -191,10 +191,26 @@ export function BreakthroughView() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BreakthroughResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<BreakthroughCandidate | null>(null);
+
+  // Unified selection: paper_id of the currently selected candidate/node.
+  const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
+
+  // Citation graph data auto-fetched after breakthrough detection (best-effort).
+  const [graphResult, setGraphResult] = useState<LineageResponse | null>(null);
 
   function toggleDesc(key: string) {
     setShowDesc((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  // Auto-fetch citation graph for the breakthrough field so candidates can be
+  // highlighted in the Graph View. Failures are silently ignored (best-effort).
+  async function fetchGraph(seed: string) {
+    try {
+      const data = await exploreLineage({ seed, top_k: 20, query_type: "balanced" });
+      setGraphResult(data);
+    } catch {
+      // Graph fetch is non-critical; omit on error.
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -210,7 +226,8 @@ export function BreakthroughView() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setSelected(null);
+    setGraphResult(null);
+    setSelectedPaperId(null);
     try {
       const data = await detectBreakthroughs({
         field: field.trim(),
@@ -219,6 +236,8 @@ export function BreakthroughView() {
         top_k: topK,
       });
       setResult(data);
+      // Fetch citation graph in parallel after breakthrough detection succeeds.
+      fetchGraph(field.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Detection failed");
     } finally {
@@ -226,9 +245,38 @@ export function BreakthroughView() {
     }
   }
 
+  // Derive selected candidate and graph paper from unified selectedPaperId.
+  const selectedCandidate: BreakthroughCandidate | null = useMemo(
+    () => result?.candidates.find((c) => c.paper_id === selectedPaperId) ?? null,
+    [result, selectedPaperId]
+  );
+
+  const selectedGraphPaper = useMemo(
+    () => graphResult?.papers.find((p) => p.paper_id === selectedPaperId) ?? null,
+    [graphResult, selectedPaperId]
+  );
+
+  // Set of breakthrough candidate paper IDs to highlight in the graph.
+  const breakthroughPaperIds = useMemo(
+    () => new Set(result?.candidates.map((c) => c.paper_id) ?? []),
+    [result]
+  );
+
+  // Evidence Panel data: PaperNode from graph + breakthrough scores if available.
+  const breakthroughInfo: BreakthroughInfo | null = selectedCandidate
+    ? {
+        paper_id: selectedCandidate.paper_id,
+        title: selectedCandidate.title,
+        year: selectedCandidate.year,
+        burst_score: selectedCandidate.burst_score,
+        centrality_shift: selectedCandidate.centrality_shift,
+        composite_score: selectedCandidate.composite_score,
+      }
+    : null;
+
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
-      {/* ── Query Form ── */}
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr_280px] lg:items-start">
+      {/* ── Left: Query Form + Results ── */}
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
@@ -376,137 +424,104 @@ export function BreakthroughView() {
             {error}
           </div>
         )}
-      </div>
 
-      {/* ── Results ── */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/40 py-24 text-muted-foreground">
-          <p className="text-sm">Detecting breakthroughs…</p>
-        </div>
-      )}
+        {result && (
+          <>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{result.total}</span> breakthrough
+              candidates detected
+            </p>
 
-      {!loading && !result && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/40 py-24 text-muted-foreground">
-          <ZapIcon className="size-8 opacity-40" />
-          <p className="text-sm">Enter a research field and run detection.</p>
-        </div>
-      )}
-
-      {result && (
-        <div className="flex flex-col gap-6">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{result.total}</span> breakthrough
-            candidates detected
-          </p>
-
-          {/* Bar chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Composite Score — Top {result.candidates.length}</CardTitle>
-              <CardDescription>Click a bar to select a candidate</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BreakthroughBarChart
-                candidates={result.candidates}
-                selected={selected}
-                onSelect={setSelected}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Selected candidate detail */}
-          {selected && (
+            {/* Bar chart */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-start justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <ZapIcon className="size-4 shrink-0 text-amber-500" />
-                    {selected.title}
-                  </span>
-                  <a
-                    href={`${SEMANTIC_SCHOLAR_BASE}${selected.paper_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Open in Semantic Scholar"
-                  >
-                    <ExternalLinkIcon className="size-4" />
-                  </a>
-                </CardTitle>
-                {selected.year && (
-                  <CardDescription>{selected.year}</CardDescription>
-                )}
+                <CardTitle>Composite Score — Top {result.candidates.length}</CardTitle>
+                <CardDescription>Click a bar to select a candidate</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-muted-foreground">Burst Score</p>
-                    <p className="font-mono text-xl font-semibold">
-                      {selected.burst_score.toFixed(4)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-muted-foreground">Centrality Shift</p>
-                    <p className="font-mono text-xl font-semibold">
-                      {selected.centrality_shift.toFixed(4)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-muted-foreground">Composite Score</p>
-                    <p className="font-mono text-xl font-semibold text-blue-600 dark:text-blue-400">
-                      {selected.composite_score.toFixed(4)}
-                    </p>
-                  </div>
+                <BreakthroughBarChart
+                  candidates={result.candidates}
+                  selectedPaperId={selectedPaperId}
+                  onSelect={setSelectedPaperId}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Candidates table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Candidates</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-2">
+                  {result.candidates.map((c, idx) => {
+                    const isSelected = c.paper_id === selectedPaperId;
+                    return (
+                      <button
+                        key={c.paper_id}
+                        type="button"
+                        onClick={() => setSelectedPaperId(isSelected ? null : c.paper_id)}
+                        className={[
+                          "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                          isSelected
+                            ? "border-ring bg-accent text-accent-foreground"
+                            : "border-border hover:bg-muted",
+                        ].join(" ")}
+                      >
+                        <span className="mt-0.5 shrink-0 w-5 text-right text-xs font-mono text-muted-foreground">
+                          {idx + 1}
+                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <p className="text-sm font-medium leading-snug line-clamp-2">
+                            {c.title}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            {c.year && <span>{c.year}</span>}
+                            <span>burst {c.burst_score.toFixed(3)}</span>
+                            <span>Δcentrality {c.centrality_shift.toFixed(3)}</span>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 font-mono">
+                          {c.composite_score.toFixed(3)}
+                        </Badge>
+                      </button>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
-          )}
+          </>
+        )}
 
-          {/* Candidates table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>All Candidates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-2">
-                {result.candidates.map((c, idx) => {
-                  const isSelected = selected?.paper_id === c.paper_id;
-                  return (
-                    <button
-                      key={c.paper_id}
-                      type="button"
-                      onClick={() => setSelected(isSelected ? null : c)}
-                      className={[
-                        "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                        isSelected
-                          ? "border-ring bg-accent text-accent-foreground"
-                          : "border-border hover:bg-muted",
-                      ].join(" ")}
-                    >
-                      <span className="mt-0.5 shrink-0 w-5 text-right text-xs font-mono text-muted-foreground">
-                        {idx + 1}
-                      </span>
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <p className="text-sm font-medium leading-snug line-clamp-2">
-                          {c.title}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                          {c.year && <span>{c.year}</span>}
-                          <span>burst {c.burst_score.toFixed(3)}</span>
-                          <span>Δcentrality {c.centrality_shift.toFixed(3)}</span>
-                        </div>
-                      </div>
-                      <Badge variant="secondary" className="shrink-0 font-mono">
-                        {c.composite_score.toFixed(3)}
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        {!loading && !result && (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/40 py-16 text-muted-foreground">
+            <ZapIcon className="size-8 opacity-40" />
+            <p className="text-sm">Enter a research field and run detection.</p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/40 py-16 text-muted-foreground">
+            <p className="text-sm">Detecting breakthroughs…</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Center: Citation Graph (auto-fetched from breakthrough field) ── */}
+      {/* Breakthrough candidates in the graph are highlighted with amber; selected is red. */}
+      <GraphViewPanel
+        lineageResult={graphResult}
+        trendResult={null}
+        selectedPaperId={selectedPaperId}
+        onSelectPaper={(p) => setSelectedPaperId(p?.paper_id ?? null)}
+        highlightedPaperIds={breakthroughPaperIds}
+      />
+
+      {/* ── Right: Evidence Panel ── */}
+      <EvidencePanel
+        paper={selectedGraphPaper}
+        breakthroughInfo={breakthroughInfo}
+      />
     </div>
   );
 }

@@ -149,7 +149,7 @@ class HybridRetrievalService:
             sem_sim = semantic_scores.get(pid, 0.0)
             g_prox = _graph_proximity(graph_distances[pid])
             score = a * sem_sim + b * g_prox
-            scored.append(ScoredPaper(paper=paper, score=score))
+            scored.append(ScoredPaper(paper=paper, score=score, semantic_sim=sem_sim, graph_prox=g_prox))
 
         # Step 5: Sort descending; paper_id is a deterministic tiebreaker.
         sort_scored_papers(scored)
