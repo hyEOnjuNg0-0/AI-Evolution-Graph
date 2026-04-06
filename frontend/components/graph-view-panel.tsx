@@ -111,7 +111,8 @@ const FORCE_LAYOUT_WARN_THRESHOLD = 25;
 /** Map a hybrid score [0, 1] to an HSL fill colour. */
 function scoreToFill(score: number | null): string {
   if (score === null || !isFinite(score)) return "hsl(220 14% 55%)";
-  const lightness = Math.round(70 - score * 30); // 70 → 40 as score rises
+  // Clamp to [0, 100] so out-of-range scores don't produce invalid CSS (e.g. hsl(220 70% -80%))
+  const lightness = Math.max(0, Math.min(100, Math.round(70 - score * 30))); // 70 → 40 as score rises
   return `hsl(220 70% ${lightness}%)`;
 }
 
@@ -144,6 +145,17 @@ function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, high
     setYearRange([minYear, maxYear]);
   }, [minYear, maxYear]);
 
+  // Warn in development when highlighted IDs don't correspond to any paper in the graph
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || !highlightedPaperIds) return;
+    const paperIds = new Set(papers.map((p) => p.paper_id));
+    for (const id of highlightedPaperIds) {
+      if (!paperIds.has(id)) {
+        console.warn(`[GraphView] highlightedPaperIds contains unknown paper ID: "${id}"`);
+      }
+    }
+  }, [highlightedPaperIds, papers]);
+
   const visiblePapers = useMemo(
     () =>
       papers.filter(
@@ -168,6 +180,16 @@ function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, high
     () => edges.filter((e) => visibleIds.has(e.source_id) && visibleIds.has(e.target_id)),
     [edges, visibleIds]
   );
+
+  // Count highlighted papers hidden by the year filter so the user knows the highlight hasn't been lost
+  const hiddenHighlightCount = useMemo(() => {
+    if (!highlightedPaperIds || highlightedPaperIds.size === 0) return 0;
+    let count = 0;
+    for (const id of highlightedPaperIds) {
+      if (!visibleIds.has(id)) count++;
+    }
+    return count;
+  }, [highlightedPaperIds, visibleIds]);
 
   const forceEdges = useMemo(
     () => visibleEdges.map((e) => ({ src: e.source_id, tgt: e.target_id })),
@@ -228,6 +250,13 @@ function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, high
         </div>
       )}
 
+      {/* Warn when highlighted papers are hidden by the year filter */}
+      {hiddenHighlightCount > 0 && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          {hiddenHighlightCount} highlighted {hiddenHighlightCount === 1 ? "paper is" : "papers are"} outside the current year range.
+        </p>
+      )}
+
       {/* Large-graph performance warning */}
       {visiblePapers.length > FORCE_LAYOUT_WARN_THRESHOLD && (
         <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -261,7 +290,12 @@ function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, high
             const a = layout.get(e.source_id);
             const b = layout.get(e.target_id);
             // Guard: skip missing nodes or NaN coordinates (residual from force-layout edge cases)
-            if (!a || !b || !isFinite(a.x) || !isFinite(a.y) || !isFinite(b.x) || !isFinite(b.y)) return null;
+            if (!a || !b || !isFinite(a.x) || !isFinite(a.y) || !isFinite(b.x) || !isFinite(b.y)) {
+              if (process.env.NODE_ENV === "development") {
+                console.warn(`[GraphView] Skipping edge ${e.source_id} → ${e.target_id}: missing or non-finite coordinates`);
+              }
+              return null;
+            }
             const dx = b.x - a.x;
             const dy = b.y - a.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
