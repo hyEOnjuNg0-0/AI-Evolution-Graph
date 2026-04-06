@@ -46,7 +46,7 @@ def trace_evolution(
     recent_years = req.end_year - req.start_year + 1
 
     # Step 1: Resolve method names matching the query (case-insensitive substring).
-    all_method_names = graph_repo.get_all_method_names()
+    all_method_names = graph_repo.get_all_method_names() or []
     name_lower = req.method_name.lower()
     matched = [m for m in all_method_names if name_lower in m.lower()]
 

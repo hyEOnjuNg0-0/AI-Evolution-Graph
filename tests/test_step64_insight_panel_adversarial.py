@@ -38,6 +38,12 @@ class MockMethodTrendRepo(MethodTrendRepositoryPort):
     def get_venue_distribution(self, method_names, year_start, year_end):
         return self._venues
 
+    def get_all_yearly_usage_counts(self, year_start, year_end):
+        return self._usage
+
+    def get_all_venue_distributions(self, year_start, year_end):
+        return self._venues
+
 
 class TestBreakthroughEdgeCases:
     def test_empty_field_string(self):

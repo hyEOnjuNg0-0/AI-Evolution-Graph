@@ -20,6 +20,7 @@ from aievograph.api.dependencies import (
 from aievograph.domain.models import (
     Author,
     BreakthroughCandidate,
+    EvolutionPath,
     MethodTrendScore,
     Paper,
     ScoredPaper,
@@ -247,3 +248,121 @@ class TestTrendRouter:
         })
         assert resp.status_code == 200
         assert resp.json()["methods"] == []
+
+
+# ---------------------------------------------------------------------------
+# /api/evolution
+# ---------------------------------------------------------------------------
+
+class TestEvolutionRouter:
+
+    @pytest.fixture
+    def client(self):
+        graph = MagicMock()
+        graph.get_all_method_names.return_value = ["transformer", "attention", "bert"]
+        graph.get_paper_ids_by_year_range.return_value = ["p1", "p2"]
+
+        trend = MagicMock()
+        trend.score.return_value = [
+            MethodTrendScore(
+                method_name="transformer",
+                cagr_score=0.9,
+                entropy_score=0.7,
+                adoption_velocity_score=0.8,
+                trend_score=0.82,
+                yearly_counts={2019: 5, 2022: 20},
+            )
+        ]
+
+        breakthrough = MagicMock()
+        breakthrough.detect.return_value = []
+
+        evolution = MagicMock()
+        evolution.extract.return_value = [
+            EvolutionPath(
+                path=["attention", "transformer"],
+                relation_types=["IMPROVES"],
+                influence_scores={"attention": 0.6, "transformer": 1.0},
+            )
+        ]
+
+        app.dependency_overrides[get_graph_repository] = lambda: graph
+        app.dependency_overrides[get_trend_service] = lambda: trend
+        app.dependency_overrides[get_breakthrough_service] = lambda: breakthrough
+        app.dependency_overrides[get_evolution_path_service] = lambda: evolution
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    def test_returns_evolution_response(self, client):
+        resp = client.post("/api/evolution", json={
+            "method_name": "transformer",
+            "start_year": 2018,
+            "end_year": 2022,
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["method_name"] == "transformer"
+        assert isinstance(body["evolution_path"], list)
+        assert len(body["evolution_path"]) == 1
+        assert body["evolution_path"][0]["from_method"] == "attention"
+        assert body["evolution_path"][0]["to_method"] == "transformer"
+        assert "influence_scores" in body
+
+    def test_no_match_returns_404(self, client):
+        resp = client.post("/api/evolution", json={
+            "method_name": "unknown_xyz_999",
+            "start_year": 2018,
+            "end_year": 2022,
+        })
+        assert resp.status_code == 404
+
+    def test_reversed_year_range_returns_422(self, client):
+        resp = client.post("/api/evolution", json={
+            "method_name": "transformer",
+            "start_year": 2025,
+            "end_year": 2018,
+        })
+        assert resp.status_code == 422
+
+    def test_missing_method_name_returns_422(self, client):
+        resp = client.post("/api/evolution", json={"start_year": 2018, "end_year": 2022})
+        assert resp.status_code == 422
+
+    def test_get_all_method_names_returns_none_does_not_crash(self, client):
+        """None return from graph_repo.get_all_method_names() must not raise TypeError."""
+        graph = MagicMock()
+        graph.get_all_method_names.return_value = None
+        app.dependency_overrides[get_graph_repository] = lambda: graph
+        resp = client.post("/api/evolution", json={
+            "method_name": "transformer",
+            "start_year": 2018,
+            "end_year": 2022,
+        })
+        assert resp.status_code == 404
+
+    def test_no_paper_ids_returns_response_with_empty_path(self, client):
+        """When no papers exist in the year range, evolution_path should be empty."""
+        graph = MagicMock()
+        graph.get_all_method_names.return_value = ["transformer"]
+        graph.get_paper_ids_by_year_range.return_value = []
+
+        trend = MagicMock()
+        trend.score.return_value = [
+            MethodTrendScore(
+                method_name="transformer",
+                cagr_score=0.5,
+                entropy_score=0.5,
+                adoption_velocity_score=0.5,
+                trend_score=0.5,
+            )
+        ]
+
+        app.dependency_overrides[get_graph_repository] = lambda: graph
+        app.dependency_overrides[get_trend_service] = lambda: trend
+        resp = client.post("/api/evolution", json={
+            "method_name": "transformer",
+            "start_year": 2018,
+            "end_year": 2022,
+        })
+        assert resp.status_code == 200
+        assert resp.json()["evolution_path"] == []
