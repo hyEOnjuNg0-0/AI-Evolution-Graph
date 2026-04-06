@@ -192,27 +192,34 @@ AiEvoGraph/
 │       │   │   ├── __init__.py
 │       │   │   ├── lineage.py               # POST /api/lineage (Research Lineage Exploration)
 │       │   │   ├── breakthrough.py          # POST /api/breakthrough (Breakthrough Detection)
-│       │   │   └── trend.py                 # POST /api/trend (Trend Momentum Analysis)
+│       │   │   ├── trend.py                 # POST /api/trend (Trending Methods Discovery — top-k, no topic)
+│       │   │   └── evolution.py             # POST /api/evolution (Method Evolution Path — fuzzy search + DAG)
 │       │   └── schemas/
 │       │       ├── __init__.py
 │       │       ├── lineage.py               # LineageRequest / LineageResponse
 │       │       ├── breakthrough.py          # BreakthroughRequest / BreakthroughResponse
-│       │       └── trend.py                 # TrendRequest / TrendResponse
+│       │       ├── trend.py                 # TrendRequest / TrendResponse (Discovery: start_year, end_year, top_k → methods[])
+│       │       └── evolution.py             # EvolutionRequest / EvolutionResponse (method_name → evolution_path + yearly_counts)
 │
 │       └── __init__.py
 
 
 ├── frontend/                                # Layer E — Next.js frontend
 │   ├── app/                                 # Next.js App Router pages
+│   │   ├── lineage/page.tsx
+│   │   ├── breakthrough/page.tsx
+│   │   ├── trend/page.tsx
+│   │   └── evolution/page.tsx               # Method Evolution Path page (신규)
 │   ├── components/ui/                       # ShadCN UI components
 │   ├── components/
 │   │   ├── ui/                              # ShadCN UI primitives (button, card, input, …)
 │   │   ├── lineage-query-panel.tsx          # Step 6.2: Research Lineage Exploration Query Panel
-│   │   ├── graph-view-panel.tsx             # Step 6.3: Citation Graph SVG + Evolution Path DAG
+│   │   ├── graph-view-panel.tsx             # Step 6.3: Citation Graph SVG + Evolution Path DAG (evolutionResult prop)
 │   │   ├── main-view.tsx                    # Step 6.5: 3-panel shell — lineage query | graph | evidence (shared selectedPaper state)
 │   │   ├── evidence-panel.tsx               # Step 6.5: Evidence Panel — hybrid score breakdown + Semantic Scholar link
 │   │   ├── breakthrough-view.tsx            # Step 6.4: Breakthrough Detection UI (form + bar chart + table)
-│   │   └── trend-view.tsx                   # Step 6.4: Trend Momentum Analysis UI (form + score cards + GraphViewPanel)
+│   │   ├── trend-view.tsx                   # Trending Methods Discovery UI (year range + top-k table/chart)
+│   │   └── evolution-view.tsx               # Method Evolution Path UI (method search + DAG via GraphViewPanel)
 │   ├── lib/
 │   │   ├── api.ts                           # Typed API client (fetch wrappers)
 │   │   └── utils.ts                         # ShadCN utility (cn)

@@ -40,7 +40,6 @@ export function MainView() {
       />
       <GraphViewPanel
         lineageResult={lineageResult}
-        trendResult={null}
         selectedPaperId={selectedPaper?.paper_id ?? null}
         onSelectPaper={setSelectedPaper}
       />

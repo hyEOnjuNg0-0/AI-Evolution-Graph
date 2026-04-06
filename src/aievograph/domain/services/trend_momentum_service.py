@@ -227,7 +227,7 @@ class TrendMomentumService:
 
     def score(
         self,
-        method_names: list[str],
+        method_names: list[str] | None,
         year_end: int,
         recent_years: int = _DEFAULT_RECENT_YEARS,
         top_k: int = _DEFAULT_TOP_K,
@@ -239,6 +239,8 @@ class TrendMomentumService:
 
         Args:
             method_names: Canonical method names to analyse.
+                          Pass None for Discovery mode — all methods in the graph
+                          are fetched and ranked without a name filter.
             year_end: Last year of the analysis window (typically current year − 1).
                       Must be in [{_MIN_YEAR}, {_MAX_YEAR}].
             recent_years: Width of the analysis window in years (default 5).
@@ -275,14 +277,20 @@ class TrendMomentumService:
             raise ValueError(
                 f"year_end must be in [{_MIN_YEAR}, {_MAX_YEAR}], got {year_end}"
             )
-        if not method_names:
-            return []
 
         year_start = year_end - recent_years + 1
 
         # [1] Fetch usage time series and venue distributions.
-        usage_series = self._repo.get_yearly_usage_counts(method_names, year_start, year_end)
-        venue_dists = self._repo.get_venue_distribution(method_names, year_start, year_end)
+        # Discovery mode (method_names=None): query all methods without a name filter.
+        if method_names is None:
+            usage_series = self._repo.get_all_yearly_usage_counts(year_start, year_end)
+            venue_dists = self._repo.get_all_venue_distributions(year_start, year_end)
+            method_names = list(set(usage_series) | set(venue_dists))
+        else:
+            if not method_names:
+                return []
+            usage_series = self._repo.get_yearly_usage_counts(method_names, year_start, year_end)
+            venue_dists = self._repo.get_venue_distribution(method_names, year_start, year_end)
 
         # Validate repository output at the domain boundary.
         _validate_usage_series(usage_series)

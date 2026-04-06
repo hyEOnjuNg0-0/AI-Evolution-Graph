@@ -1,15 +1,16 @@
 """
 AI EvoGraph FastAPI application entry point.
 
-Exposes three core feature endpoints:
+Exposes four core feature endpoints:
   POST /api/lineage      — Research Lineage Exploration
   POST /api/breakthrough — Breakthrough Detection
-  POST /api/trend        — Trend Momentum Analysis
+  POST /api/trend        — Trending Methods Discovery
+  POST /api/evolution    — Method Evolution Path
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from aievograph.api.routers import breakthrough, lineage, trend
+from aievograph.api.routers import breakthrough, evolution, lineage, trend
 from aievograph.infrastructure.logging import configure_logging
 
 configure_logging()
@@ -35,6 +36,7 @@ app.add_middleware(
 app.include_router(lineage.router)
 app.include_router(breakthrough.router)
 app.include_router(trend.router)
+app.include_router(evolution.router)
 
 
 @app.get("/health")

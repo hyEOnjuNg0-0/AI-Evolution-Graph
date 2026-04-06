@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRightIcon, GitBranchIcon, TrendingUpIcon, ZapIcon } from "lucide-react";
+import { ArrowRightIcon, GitBranchIcon, NetworkIcon, TrendingUpIcon, ZapIcon } from "lucide-react";
 
 const FEATURES = [
   {
@@ -21,10 +21,18 @@ const FEATURES = [
   {
     href: "/trend",
     icon: TrendingUpIcon,
-    title: "Trend Momentum Analysis",
+    title: "Trending Methods Discovery",
     description:
-      "Quantify growth momentum of AI methods using CAGR, Shannon entropy, and adoption velocity, and trace their evolution paths.",
-    label: "Analyze",
+      "Discover which AI methods gained the most momentum in a given period, ranked by CAGR, venue diversity, and adoption velocity.",
+    label: "Discover",
+  },
+  {
+    href: "/evolution",
+    icon: NetworkIcon,
+    title: "Method Evolution Path",
+    description:
+      "Trace how a specific AI method evolved over time — which methods it extended, improved, or replaced across the research graph.",
+    label: "Trace",
   },
 ];
 
@@ -42,7 +50,7 @@ export default function Home() {
       </div>
 
       {/* Feature cards */}
-      <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map(({ href, icon: Icon, title, description, label }) => (
           <Link
             key={href}

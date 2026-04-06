@@ -102,19 +102,42 @@ export function detectBreakthroughs(
 }
 
 // ---------------------------------------------------------------------------
-// Trend — Trend Momentum Analysis
+// Trend — Trending Methods Discovery
 // ---------------------------------------------------------------------------
 
 export interface TrendRequest {
-  topic: string;
   start_year: number;
   end_year: number;
+  top_k?: number;  // default 30
 }
 
-export interface YearlyScore {
-  year: number;
-  usage_count: number;
-  score: number;
+export interface TrendMethodResult {
+  method_name: string;
+  cagr: number;
+  entropy: number;
+  adoption_velocity: number;
+  momentum_score: number;
+  yearly_counts: Record<string, number>;
+}
+
+export interface TrendResponse {
+  start_year: number;
+  end_year: number;
+  methods: TrendMethodResult[];
+}
+
+export function discoverTrending(req: TrendRequest): Promise<TrendResponse> {
+  return post<TrendRequest, TrendResponse>("/api/trend", req);
+}
+
+// ---------------------------------------------------------------------------
+// Evolution — Method Evolution Path
+// ---------------------------------------------------------------------------
+
+export interface EvolutionRequest {
+  method_name: string;
+  start_year: number;
+  end_year: number;
 }
 
 export interface EvolutionStep {
@@ -124,23 +147,13 @@ export interface EvolutionStep {
   year: number | null;
 }
 
-export interface MethodScore {
-  method: string;
-  score: number;
-}
-
-export interface TrendResponse {
-  topic: string;
-  cagr: number;
-  entropy: number;
-  adoption_velocity: number;
-  momentum_score: number;
-  yearly_scores: YearlyScore[];
+export interface EvolutionResponse {
+  method_name: string;
   evolution_path: EvolutionStep[];
-  method_scores: MethodScore[];
-  evolution_error: string | null;
+  yearly_counts: Record<string, number>;
+  influence_scores: Record<string, number>;
 }
 
-export function analyzeTrend(req: TrendRequest): Promise<TrendResponse> {
-  return post<TrendRequest, TrendResponse>("/api/trend", req);
+export function traceEvolution(req: EvolutionRequest): Promise<EvolutionResponse> {
+  return post<EvolutionRequest, EvolutionResponse>("/api/evolution", req);
 }

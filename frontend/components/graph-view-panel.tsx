@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   type CitationEdge,
+  type EvolutionResponse,
+  type EvolutionStep,
   type LineageResponse,
   type PaperNode,
-  type TrendResponse,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -373,8 +374,8 @@ function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, high
 const BREAKTHROUGH_THRESHOLD = 0.5;
 
 interface EvolutionPathViewProps {
-  evolutionPath: TrendResponse["evolution_path"];
-  /** Optional map of method name → composite_score for breakthrough badge */
+  evolutionPath: EvolutionStep[];
+  /** Optional map of method name → influence score for breakthrough badge */
   breakthroughScores?: Map<string, number>;
 }
 
@@ -655,15 +656,15 @@ function EvolutionPathView({ evolutionPath, breakthroughScores }: EvolutionPathV
 
 export interface GraphViewPanelProps {
   lineageResult: LineageResponse | null;
-  trendResult: TrendResponse | null;
+  evolutionResult?: EvolutionResponse | null;
   selectedPaperId?: string | null;
   onSelectPaper?: (paper: PaperNode | null) => void;
   /** Paper IDs to mark with amber highlighting (e.g. breakthrough candidates). */
   highlightedPaperIds?: Set<string>;
 }
 
-export function GraphViewPanel({ lineageResult, trendResult, selectedPaperId, onSelectPaper, highlightedPaperIds }: GraphViewPanelProps) {
-  if (!lineageResult && !trendResult) {
+export function GraphViewPanel({ lineageResult, evolutionResult, selectedPaperId, onSelectPaper, highlightedPaperIds }: GraphViewPanelProps) {
+  if (!lineageResult && !evolutionResult) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-16 text-sm text-muted-foreground">
@@ -686,7 +687,7 @@ export function GraphViewPanel({ lineageResult, trendResult, selectedPaperId, on
             <TabsTrigger value="citation" disabled={!lineageResult}>
               Citation Graph
             </TabsTrigger>
-            <TabsTrigger value="evolution" disabled={!trendResult}>
+            <TabsTrigger value="evolution" disabled={!evolutionResult}>
               Evolution Path
             </TabsTrigger>
           </TabsList>
@@ -706,25 +707,18 @@ export function GraphViewPanel({ lineageResult, trendResult, selectedPaperId, on
           </TabsContent>
 
           <TabsContent value="evolution" className="mt-4">
-            {trendResult ? (
-              <div className="flex flex-col gap-3">
-                {trendResult.evolution_error && (
-                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-                    Evolution path unavailable: {trendResult.evolution_error}
-                  </div>
-                )}
-                <EvolutionPathView
-                  evolutionPath={trendResult.evolution_path}
-                  breakthroughScores={
-                    trendResult.method_scores.length > 0
-                      ? new Map(trendResult.method_scores.map((ms) => [ms.method, ms.score]))
-                      : undefined
-                  }
-                />
-              </div>
+            {evolutionResult ? (
+              <EvolutionPathView
+                evolutionPath={evolutionResult.evolution_path}
+                breakthroughScores={
+                  Object.keys(evolutionResult.influence_scores).length > 0
+                    ? new Map(Object.entries(evolutionResult.influence_scores))
+                    : undefined
+                }
+              />
             ) : (
               <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                Run a Trend Momentum analysis to view the evolution path.
+                Run a Method Evolution analysis to view the path.
               </div>
             )}
           </TabsContent>

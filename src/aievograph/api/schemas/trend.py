@@ -2,9 +2,9 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class TrendRequest(BaseModel):
-    topic: str = Field(..., description="Method or topic name to analyze")
     start_year: int = Field(..., ge=1930, le=2030, description="Analysis period start year")
     end_year: int = Field(..., ge=1930, le=2030, description="Analysis period end year")
+    top_k: int = Field(30, ge=1, le=200, description="Number of top methods to return")
 
     @model_validator(mode="after")
     def validate_year_range(self) -> "TrendRequest":
@@ -13,31 +13,16 @@ class TrendRequest(BaseModel):
         return self
 
 
-class YearlyScore(BaseModel):
-    year: int
-    usage_count: int
-    score: float
-
-
-class EvolutionStep(BaseModel):
-    from_method: str
-    to_method: str
-    relation_type: str
-    year: int | None
-
-
-class MethodScore(BaseModel):
-    method: str
-    score: float
-
-
-class TrendResponse(BaseModel):
-    topic: str
+class TrendMethodResult(BaseModel):
+    method_name: str
     cagr: float
     entropy: float
     adoption_velocity: float
     momentum_score: float
-    yearly_scores: list[YearlyScore]
-    evolution_path: list[EvolutionStep]
-    method_scores: list[MethodScore]
-    evolution_error: str | None = None
+    yearly_counts: dict[str, int]   # JSON keys are strings (year as str)
+
+
+class TrendResponse(BaseModel):
+    start_year: int
+    end_year: int
+    methods: list[TrendMethodResult]

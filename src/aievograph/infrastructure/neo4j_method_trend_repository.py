@@ -45,6 +45,27 @@ RETURN m.name   AS method_name,
        count(p) AS cnt
 """
 
+# Discovery mode: count ALL methods, grouped by publication year (no name filter).
+_ALL_YEARLY_USAGE = """
+MATCH (p:Paper)-[:USES]->(m:Method)
+WHERE p.publication_year >= $year_start
+  AND p.publication_year <= $year_end
+RETURN m.name               AS method_name,
+       p.publication_year   AS year,
+       count(p)             AS cnt
+"""
+
+# Discovery mode: count ALL methods by venue (no name filter, null venues excluded).
+_ALL_VENUE_DISTRIBUTION = """
+MATCH (p:Paper)-[:USES]->(m:Method)
+WHERE p.publication_year >= $year_start
+  AND p.publication_year <= $year_end
+  AND p.venue IS NOT NULL
+RETURN m.name   AS method_name,
+       p.venue  AS venue,
+       count(p) AS cnt
+"""
+
 
 class Neo4jMethodTrendRepository(MethodTrendRepositoryPort):
     """Fetch method adoption data from Neo4j for trend momentum scoring."""
@@ -104,6 +125,55 @@ class Neo4jMethodTrendRepository(MethodTrendRepositoryPort):
             "Venue distribution fetched: %d/%d methods have venue data in %d–%d",
             len(result),
             len(method_names),
+            year_start,
+            year_end,
+        )
+        return result
+
+    def get_all_yearly_usage_counts(
+        self,
+        year_start: int,
+        year_end: int,
+    ) -> dict[str, dict[int, int]]:
+        """Return {method_name: {year: count}} for all methods within the window."""
+        validate_year_range(year_start, year_end)
+
+        result: dict[str, dict[int, int]] = run_grouped_query(
+            self._driver,
+            _ALL_YEARLY_USAGE,
+            {"year_start": year_start, "year_end": year_end},
+            group_key="method_name",
+            sub_key="year",
+            sub_key_cast=int,
+        )
+
+        logger.debug(
+            "All-methods yearly usage fetched: %d methods have data in %d–%d",
+            len(result),
+            year_start,
+            year_end,
+        )
+        return result
+
+    def get_all_venue_distributions(
+        self,
+        year_start: int,
+        year_end: int,
+    ) -> dict[str, dict[str, int]]:
+        """Return {method_name: {venue: count}} for all methods within the window."""
+        validate_year_range(year_start, year_end)
+
+        result: dict[str, dict[str, int]] = run_grouped_query(
+            self._driver,
+            _ALL_VENUE_DISTRIBUTION,
+            {"year_start": year_start, "year_end": year_end},
+            group_key="method_name",
+            sub_key="venue",
+        )
+
+        logger.debug(
+            "All-methods venue distribution fetched: %d methods have venue data in %d–%d",
+            len(result),
             year_start,
             year_end,
         )

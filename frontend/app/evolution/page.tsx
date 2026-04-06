@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ChevronLeftIcon } from "lucide-react";
 
-import { TrendView } from "@/components/trend-view";
+import { EvolutionView } from "@/components/evolution-view";
 
-export default function TrendPage() {
+export default function EvolutionPage() {
   return (
     <main className="mx-auto w-full max-w-screen-xl px-4 py-10">
       <div className="mb-8 flex flex-col gap-1">
@@ -14,12 +14,12 @@ export default function TrendPage() {
           <ChevronLeftIcon className="size-4" />
           Home
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Trending Methods Discovery</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Method Evolution Path</h1>
         <p className="text-sm text-muted-foreground">
-          Discover which AI methods gained the most momentum in a given period, ranked by CAGR, venue diversity, and adoption velocity.
+          Trace how an AI method evolved over time — which methods it extended, improved, or replaced.
         </p>
       </div>
-      <TrendView />
+      <EvolutionView />
     </main>
   );
 }

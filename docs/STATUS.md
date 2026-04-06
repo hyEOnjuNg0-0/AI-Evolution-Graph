@@ -8,7 +8,7 @@
 
 ## 진행 상태
 
-> 마지막 업데이트: 2026-04-06 (Step 6.5: 3-패널 레이아웃 + Evidence Panel + 전역 상태 관리 — 백엔드 hybrid score 분해 필드(semantic_similarity, graph_proximity) 추가, EvidencePanel 신규 생성, MainView 3-컬럼 레이아웃 전환, 선택 논문 공유 상태 구현)
+> 마지막 업데이트: 2026-04-06 (Trend/Evolution 엔드포인트 분리 — POST /api/trend Discovery 모드(topic 제거, top_k 추가, method 배열 반환), POST /api/evolution 신규(method_name 검색 → evolution DAG), 프론트엔드 trend-view 재설계 + evolution-view 신규 생성 + GraphViewPanel evolutionResult prop 전환)
 
 | Phase | 레이어 | 상태 | 진행률 |
 |-------|--------|------|--------|
