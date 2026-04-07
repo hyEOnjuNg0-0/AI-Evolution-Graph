@@ -11,7 +11,6 @@ import {
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ---------------------------------------------------------------------------
 // Force-directed layout (Fruchterman-Reingold, runs synchronously)
@@ -674,55 +673,37 @@ export function GraphViewPanel({ lineageResult, evolutionResult, selectedPaperId
     );
   }
 
-  const defaultTab = lineageResult ? "citation" : "evolution";
+  const subtitle = lineageResult ? "Citation Graph" : "Evolution Path";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Graph View</CardTitle>
+        <CardTitle>
+          Graph View
+          <span className="ml-2 text-sm font-normal text-muted-foreground">— {subtitle}</span>
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue={defaultTab}>
-          <TabsList>
-            <TabsTrigger value="citation" disabled={!lineageResult}>
-              Citation Graph
-            </TabsTrigger>
-            <TabsTrigger value="evolution" disabled={!evolutionResult}>
-              Evolution Path
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="citation" className="mt-4">
-            {lineageResult && (
-              // Key resets internal state (year range) when the query result changes
-              <CitationGraphView
-                key={lineageResult.papers[0]?.paper_id ?? "empty"}
-                papers={lineageResult.papers}
-                edges={lineageResult.edges}
-                selectedPaperId={selectedPaperId ?? null}
-                onSelectPaper={onSelectPaper ?? (() => undefined)}
-                highlightedPaperIds={highlightedPaperIds}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="evolution" className="mt-4">
-            {evolutionResult ? (
-              <EvolutionPathView
-                evolutionPath={evolutionResult.evolution_path}
-                breakthroughScores={
-                  Object.keys(evolutionResult.influence_scores).length > 0
-                    ? new Map(Object.entries(evolutionResult.influence_scores))
-                    : undefined
-                }
-              />
-            ) : (
-              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                Run a Method Evolution analysis to view the path.
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {lineageResult ? (
+          // Key resets internal state (year range) when the query result changes
+          <CitationGraphView
+            key={lineageResult.papers[0]?.paper_id ?? "empty"}
+            papers={lineageResult.papers}
+            edges={lineageResult.edges}
+            selectedPaperId={selectedPaperId ?? null}
+            onSelectPaper={onSelectPaper ?? (() => undefined)}
+            highlightedPaperIds={highlightedPaperIds}
+          />
+        ) : (
+          <EvolutionPathView
+            evolutionPath={evolutionResult!.evolution_path}
+            breakthroughScores={
+              Object.keys(evolutionResult!.influence_scores).length > 0
+                ? new Map(Object.entries(evolutionResult!.influence_scores))
+                : undefined
+            }
+          />
+        )}
       </CardContent>
     </Card>
   );
