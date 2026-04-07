@@ -114,6 +114,10 @@ def trace_evolution(
                 exc,
                 exc_info=True,
             )
+            raise HTTPException(
+                status_code=500,
+                detail="Evolution path extraction failed. Please try again later.",
+            ) from exc
 
     logger.info(
         "Evolution trace method=%r window=%d–%d → %d path steps",
