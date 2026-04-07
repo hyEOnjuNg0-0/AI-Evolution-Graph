@@ -197,6 +197,7 @@ export function BreakthroughView() {
 
   // Citation graph data auto-fetched after breakthrough detection (best-effort).
   const [graphResult, setGraphResult] = useState<LineageResponse | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
 
   function toggleDesc(key: string) {
     setShowDesc((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -205,11 +206,14 @@ export function BreakthroughView() {
   // Auto-fetch citation graph for the breakthrough field so candidates can be
   // highlighted in the Graph View. Failures are silently ignored (best-effort).
   async function fetchGraph(seed: string) {
+    setGraphLoading(true);
     try {
       const data = await exploreLineage({ seed, top_k: 20, query_type: "balanced" });
       setGraphResult(data);
     } catch {
       // Graph fetch is non-critical; omit on error.
+    } finally {
+      setGraphLoading(false);
     }
   }
 
@@ -227,6 +231,7 @@ export function BreakthroughView() {
     setError(null);
     setResult(null);
     setGraphResult(null);
+    setGraphLoading(false);
     setSelectedPaperId(null);
     try {
       const data = await detectBreakthroughs({
@@ -509,13 +514,21 @@ export function BreakthroughView() {
 
       {/* ── Center: Citation Graph (auto-fetched from breakthrough field) ── */}
       {/* Breakthrough candidates in the graph are highlighted with amber; selected is red. */}
-      <GraphViewPanel
-        lineageResult={graphResult}
-        trendResult={null}
-        selectedPaperId={selectedPaperId}
-        onSelectPaper={(p) => setSelectedPaperId(p?.paper_id ?? null)}
-        highlightedPaperIds={breakthroughPaperIds}
-      />
+      {graphLoading ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+            Citation graph loading… please wait.
+          </CardContent>
+        </Card>
+      ) : (
+        <GraphViewPanel
+          lineageResult={graphResult}
+          trendResult={null}
+          selectedPaperId={selectedPaperId}
+          onSelectPaper={(p) => setSelectedPaperId(p?.paper_id ?? null)}
+          highlightedPaperIds={breakthroughPaperIds}
+        />
+      )}
 
       {/* ── Right: Evidence Panel ── */}
       <EvidencePanel
