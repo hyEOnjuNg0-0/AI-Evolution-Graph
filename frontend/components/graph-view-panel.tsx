@@ -169,12 +169,14 @@ function CitationGraphView({ papers, edges, selectedPaperId, onSelectPaper, high
     [visiblePapers]
   );
 
-  // When the selected paper is filtered out by the year slider, deselect it in the parent.
+  // When the selected paper is in this graph but hidden by the year slider, deselect it.
+  // Papers not in this graph at all (e.g. breakthrough candidates) must not be deselected.
+  const allGraphIds = useMemo(() => new Set(papers.map((p) => p.paper_id)), [papers]);
   useEffect(() => {
-    if (selectedPaperId && !visibleIds.has(selectedPaperId)) {
+    if (selectedPaperId && allGraphIds.has(selectedPaperId) && !visibleIds.has(selectedPaperId)) {
       onSelectPaper(null);
     }
-  }, [visibleIds, selectedPaperId, onSelectPaper]);
+  }, [visibleIds, allGraphIds, selectedPaperId, onSelectPaper]);
 
   const visibleEdges = useMemo(
     () => edges.filter((e) => visibleIds.has(e.source_id) && visibleIds.has(e.target_id)),
