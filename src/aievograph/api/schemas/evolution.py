@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
+
+from aievograph.api.schemas.common import YearRangeRequest, validate_not_blank
 
 
-class EvolutionRequest(BaseModel):
+class EvolutionRequest(YearRangeRequest):
     method_name: str = Field(..., min_length=1, max_length=500, description="Method name to trace evolution path")
     start_year: int = Field(..., ge=1930, le=2030, description="Analysis period start year")
     end_year: int = Field(..., ge=1930, le=2030, description="Analysis period end year")
@@ -9,15 +11,7 @@ class EvolutionRequest(BaseModel):
     @field_validator("method_name", mode="before")
     @classmethod
     def method_name_not_blank(cls, v: str) -> str:
-        if isinstance(v, str) and not v.strip():
-            raise ValueError("method_name must not be blank")
-        return v
-
-    @model_validator(mode="after")
-    def validate_year_range(self) -> "EvolutionRequest":
-        if self.start_year > self.end_year:
-            raise ValueError("start_year must be <= end_year")
-        return self
+        return validate_not_blank("method_name", v)
 
 
 class EvolutionStep(BaseModel):

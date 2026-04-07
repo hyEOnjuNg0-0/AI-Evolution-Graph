@@ -1,11 +1,13 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
+
+from aievograph.api.schemas.common import YearRangeRequest, validate_not_blank
 
 QueryType = Literal["semantic", "structural", "balanced"]
 
 
-class LineageRequest(BaseModel):
+class LineageRequest(YearRangeRequest):
     seed: str = Field(..., min_length=1, max_length=500, description="Natural-language keyword or paper title to search")
     hop_depth: int = Field(2, ge=1, le=5, description="Citation graph traversal depth")
     start_year: int | None = Field(None, description="Filter: papers published from this year")
@@ -16,16 +18,7 @@ class LineageRequest(BaseModel):
     @field_validator("seed", mode="before")
     @classmethod
     def seed_not_blank(cls, v: str) -> str:
-        if isinstance(v, str) and not v.strip():
-            raise ValueError("seed must not be blank")
-        return v
-
-    @model_validator(mode="after")
-    def validate_year_range(self) -> "LineageRequest":
-        if self.start_year is not None and self.end_year is not None:
-            if self.start_year > self.end_year:
-                raise ValueError("start_year must be <= end_year")
-        return self
+        return validate_not_blank("seed", v)
 
 
 class PaperNode(BaseModel):

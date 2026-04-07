@@ -393,3 +393,156 @@ class TestEdgeEnrichmentHandling:
         for cand in resp.json()["candidates"]:
             # year can be None or an integer
             assert cand["year"] is None or isinstance(cand["year"], int)
+
+
+
+class TestVULN7BreakthroughFallback:
+    """VULN-7: Tests for breakthrough enrichment fallback path."""
+
+    def test_unknown_paper_fallback_title(self, client: TestClient) -> None:
+        """Unknown paper_id must fallback to title=paper_id."""
+        def mock_breakthrough_unknown():
+            svc = MagicMock()
+            svc.detect.return_value = [
+                BreakthroughCandidate(paper_id="UNKNOWN_999", burst_score=0.85, centrality_shift=0.80, breakthrough_score=0.83),
+            ]
+            return svc
+        
+        def mock_repo_unknown():
+            repo = MagicMock()
+            repo.get_citation_neighborhood.return_value = []
+            repo.get_paper_by_id.return_value = None
+            repo.get_all_method_names.return_value = []
+            repo.get_paper_ids_by_year_range.return_value = []
+            return repo
+        
+        app.dependency_overrides[get_breakthrough_service] = mock_breakthrough_unknown
+        app.dependency_overrides[get_graph_repository] = mock_repo_unknown
+        
+        resp = client.post("/api/breakthrough", json={"field": "test", "start_year": 2015, "end_year": 2022})
+        assert resp.status_code == 200
+        cand = resp.json()["candidates"][0]
+        assert cand["title"] == "UNKNOWN_999"
+        assert cand["year"] is None
+        app.dependency_overrides.clear()
+
+    def test_mixed_found_and_unknown_candidates(self, client: TestClient) -> None:
+        """Mix of enriched and fallback candidates."""
+        def mock_breakthrough_mixed():
+            svc = MagicMock()
+            svc.detect.return_value = [
+                BreakthroughCandidate(paper_id="P_2017", burst_score=0.95, centrality_shift=0.88, breakthrough_score=0.92),
+                BreakthroughCandidate(paper_id="UNKNOWN_X", burst_score=0.75, centrality_shift=0.70, breakthrough_score=0.73),
+                BreakthroughCandidate(paper_id="P_2018", burst_score=0.80, centrality_shift=0.75, breakthrough_score=0.78),
+            ]
+            return svc
+        
+        def mock_repo_mixed():
+            repo = MagicMock()
+            repo.get_citation_neighborhood.return_value = []
+            repo.get_paper_by_id.side_effect = lambda pid: {"P_2017": P_2017, "P_2018": P_2018}.get(pid)
+            repo.get_all_method_names.return_value = []
+            repo.get_paper_ids_by_year_range.return_value = []
+            return repo
+        
+        app.dependency_overrides[get_breakthrough_service] = mock_breakthrough_mixed
+        app.dependency_overrides[get_graph_repository] = mock_repo_mixed
+        
+        resp = client.post("/api/breakthrough", json={"field": "test", "start_year": 2015, "end_year": 2022})
+        assert resp.status_code == 200
+        cs = resp.json()["candidates"]
+        assert len(cs) == 3
+        assert cs[0]["title"] == "Attention Is All You Need"
+        assert cs[1]["title"] == "UNKNOWN_X" and cs[1]["year"] is None
+        assert cs[2]["title"] == "BERT: Pre-training of Deep Bidirectional Transformers"
+        app.dependency_overrides.clear()
+
+    def test_all_candidates_unknown_fallback(self, client: TestClient) -> None:
+        """All candidates fallback to paper_id as title."""
+        def mock_breakthrough_all_unknown():
+            svc = MagicMock()
+            svc.detect.return_value = [
+                BreakthroughCandidate(paper_id="UNKNOWN_A", burst_score=0.90, centrality_shift=0.85, breakthrough_score=0.88),
+                BreakthroughCandidate(paper_id="UNKNOWN_B", burst_score=0.80, centrality_shift=0.75, breakthrough_score=0.78),
+            ]
+            return svc
+        
+        def mock_repo_all_none():
+            repo = MagicMock()
+            repo.get_citation_neighborhood.return_value = []
+            repo.get_paper_by_id.return_value = None
+            repo.get_all_method_names.return_value = []
+            repo.get_paper_ids_by_year_range.return_value = []
+            return repo
+        
+        app.dependency_overrides[get_breakthrough_service] = mock_breakthrough_all_unknown
+        app.dependency_overrides[get_graph_repository] = mock_repo_all_none
+        
+        resp = client.post("/api/breakthrough", json={"field": "test", "start_year": 2015, "end_year": 2022})
+        assert resp.status_code == 200
+        for c in resp.json()["candidates"]:
+            assert c["title"] == c["paper_id"] and c["year"] is None
+        app.dependency_overrides.clear()
+
+    def test_fallback_title_exact_no_transformation(self, client: TestClient) -> None:
+        """Fallback title must be exact paper_id with no transformation."""
+        def mock_breakthrough_special():
+            svc = MagicMock()
+            svc.detect.return_value = [
+                BreakthroughCandidate(paper_id="P_SPECIAL-2024_v2", burst_score=0.88, centrality_shift=0.83, breakthrough_score=0.86),
+            ]
+            return svc
+        
+        def mock_repo_none():
+            repo = MagicMock()
+            repo.get_citation_neighborhood.return_value = []
+            repo.get_paper_by_id.return_value = None
+            repo.get_all_method_names.return_value = []
+            repo.get_paper_ids_by_year_range.return_value = []
+            return repo
+        
+        app.dependency_overrides[get_breakthrough_service] = mock_breakthrough_special
+        app.dependency_overrides[get_graph_repository] = mock_repo_none
+        
+        resp = client.post("/api/breakthrough", json={"field": "test", "start_year": 2015, "end_year": 2022})
+        assert resp.status_code == 200
+        cand = resp.json()["candidates"][0]
+        assert cand["title"] == "P_SPECIAL-2024_v2"
+        app.dependency_overrides.clear()
+
+    def test_fallback_response_schema_validation(self, client: TestClient) -> None:
+        """Fallback responses must satisfy schema."""
+        from aievograph.api.schemas.breakthrough import BreakthroughCandidate as SchemaCand
+        
+        def mock_breakthrough_schema():
+            svc = MagicMock()
+            svc.detect.return_value = [
+                BreakthroughCandidate(paper_id="UNKNOWN_1", burst_score=0.90, centrality_shift=0.85, breakthrough_score=0.88),
+            ]
+            return svc
+        
+        def mock_repo_none():
+            repo = MagicMock()
+            repo.get_citation_neighborhood.return_value = []
+            repo.get_paper_by_id.return_value = None
+            repo.get_all_method_names.return_value = []
+            repo.get_paper_ids_by_year_range.return_value = []
+            return repo
+        
+        app.dependency_overrides[get_breakthrough_service] = mock_breakthrough_schema
+        app.dependency_overrides[get_graph_repository] = mock_repo_none
+        
+        resp = client.post("/api/breakthrough", json={"field": "test", "start_year": 2015, "end_year": 2022})
+        assert resp.status_code == 200
+        for raw in resp.json()["candidates"]:
+            validated = SchemaCand(
+                paper_id=raw["paper_id"],
+                title=raw["title"],
+                year=raw["year"],
+                burst_score=raw["burst_score"],
+                centrality_shift=raw["centrality_shift"],
+                composite_score=raw["composite_score"],
+            )
+            assert isinstance(validated.title, str)
+            assert validated.year is None or isinstance(validated.year, int)
+        app.dependency_overrides.clear()

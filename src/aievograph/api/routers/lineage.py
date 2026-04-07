@@ -18,6 +18,18 @@ router = APIRouter(prefix="/api/lineage", tags=["lineage"])
 logger = logging.getLogger(__name__)
 
 
+def _deduplicate_edges(edges: list[CitationEdge]) -> list[CitationEdge]:
+    """Return edges with duplicates removed; A→B and B→A are treated as distinct."""
+    seen: set[tuple[str, str]] = set()
+    unique: list[CitationEdge] = []
+    for e in edges:
+        key = (e.source_id, e.target_id)
+        if key not in seen:
+            seen.add(key)
+            unique.append(e)
+    return unique
+
+
 @router.post("", response_model=LineageResponse)
 def explore_lineage(
     req: LineageRequest,
@@ -76,14 +88,6 @@ def explore_lineage(
             if neighbor.paper_id in result_ids:
                 edges.append(CitationEdge(source_id=node.paper_id, target_id=neighbor.paper_id))
 
-    # Deduplicate directed edges; A→B and B→A are distinct citation relationships.
-    seen: set[tuple[str, str]] = set()
-    unique_edges = []
-    for e in edges:
-        key = (e.source_id, e.target_id)
-        if key not in seen:
-            seen.add(key)
-            unique_edges.append(e)
-
+    unique_edges = _deduplicate_edges(edges)
     logger.info("Lineage query=%r → %d papers, %d edges", req.seed, len(nodes), len(unique_edges))
     return LineageResponse(papers=nodes, edges=unique_edges, total=len(nodes))
