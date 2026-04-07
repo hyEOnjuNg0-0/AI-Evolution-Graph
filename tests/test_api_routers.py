@@ -176,6 +176,47 @@ class TestBreakthroughRouter:
         assert resp.status_code == 200
         assert resp.json()["total"] == 0
 
+    def test_enrichment_fallback_when_paper_not_found(self):
+        """When a candidate paper_id is not in the cache or graph, title falls back to paper_id and year to None."""
+        retrieval = MagicMock()
+        retrieval.search.return_value = Subgraph(papers=[_scored("p1", 0.8, 2020)])
+
+        breakthrough = MagicMock()
+        breakthrough.detect.return_value = [
+            BreakthroughCandidate(
+                paper_id="ghost_paper",  # not in retrieval cache
+                burst_score=0.9,
+                centrality_shift=0.7,
+                breakthrough_score=0.85,
+            )
+        ]
+
+        graph = MagicMock()
+        graph.get_paper_by_id.return_value = None  # also not in graph
+
+        app.dependency_overrides[get_hybrid_retrieval_service] = lambda: retrieval
+        app.dependency_overrides[get_breakthrough_service] = lambda: breakthrough
+        app.dependency_overrides[get_graph_repository] = lambda: graph
+
+        try:
+            client = TestClient(app)
+            resp = client.post("/api/breakthrough", json={
+                "field": "attention",
+                "start_year": 2018,
+                "end_year": 2022,
+            })
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        candidate = body["candidates"][0]
+        assert candidate["paper_id"] == "ghost_paper"
+        # Fallback: title equals paper_id, year is None
+        assert candidate["title"] == "ghost_paper"
+        assert candidate["year"] is None
+
 
 # ---------------------------------------------------------------------------
 # /api/trend
