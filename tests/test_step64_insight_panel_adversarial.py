@@ -3,6 +3,7 @@ Adversarial test suite for Step 6.4 Insight Panel (Frontend + Backend Integratio
 """
 
 import pytest
+from pydantic import ValidationError
 from aievograph.domain.ports.citation_time_series_repository import (
     CitationTimeSeriesRepositoryPort,
 )
@@ -46,9 +47,10 @@ class MockMethodTrendRepo(MethodTrendRepositoryPort):
 
 
 class TestBreakthroughEdgeCases:
-    def test_empty_field_string(self):
-        req = BreakthroughRequest(field="", start_year=2020, end_year=2025, top_k=10)
-        assert req.field == ""
+    def test_empty_field_string_rejected(self):
+        """E-1 fix: Empty field must be rejected by validate_not_blank."""
+        with pytest.raises(ValidationError, match="field must not be blank"):
+            BreakthroughRequest(field="", start_year=2020, end_year=2025, top_k=10)
 
     def test_zero_top_k_rejected(self):
         with pytest.raises(ValueError):

@@ -44,7 +44,10 @@
       "Bash(powershell.exe -Command \"gh run list --repo hyEOnjuNg0-0/AI-Evolution-Graph --limit 5 --json databaseId,status,conclusion,displayTitle,createdAt\")",
       "WebFetch(domain:api.github.com)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(where gh:*)",
+      "mcp__github__search_repositories",
+      "mcp__github__get_commit"
     ]
   }
 }

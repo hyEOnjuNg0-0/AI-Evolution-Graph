@@ -20,10 +20,10 @@ class TestLineageRequestSchema:
         with pytest.raises(ValidationError, match="seed"):
             LineageRequest()
 
-    def test_seed_empty_string_accepted(self):
-        """VULNERABILITY E-1: Empty seed passes Pydantic."""
-        req = LineageRequest(seed="")
-        assert req.seed == ""
+    def test_seed_empty_string_rejected(self):
+        """E-1 fix: Empty seed must be rejected by validate_not_blank."""
+        with pytest.raises(ValidationError, match="seed must not be blank"):
+            LineageRequest(seed="")
 
     def test_hop_depth_minimum_one(self):
         """Adversarial: hop_depth < 1 should fail."""
