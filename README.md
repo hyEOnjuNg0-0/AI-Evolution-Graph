@@ -2,6 +2,10 @@
 
 > **Map how AI research evolves.** AI EvoGraph builds a Citation and Method Evolution Graph from thousands of AI papers, then quantifies research lineage, structural inflection points, and diffusion dynamics — making the invisible architecture of scientific progress visible.
 
+<p align="center">
+  <img src="docs/screenshots/home.png" width="90%" alt="AI EvoGraph home UI" />
+</p>
+
 ---
 
 ## Why AI EvoGraph?
@@ -184,6 +188,18 @@ A **FastAPI** backend exposes four endpoints:
 | `POST /api/evolution` | Method Evolution Path — trace how a technique evolved |
 
 A **Next.js** frontend provides an interactive UI for each feature, including a citation graph SVG viewer and an evolution path DAG visualization.
+
+## UI Preview
+
+<p align="center">
+  <img src="docs/screenshots/ResearchLineageExploration.png" width="48%" />
+  <img src="docs/screenshots/BreakthroughDetection.png" width="48%" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/TrendingMethodsDiscovery.png" width="48%" />
+  <img src="docs/screenshots/MethodEvolutionPath.png" width="48%" />
+</p>
 
 ---
 
