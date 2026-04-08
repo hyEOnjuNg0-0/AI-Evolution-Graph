@@ -189,16 +189,28 @@ A **FastAPI** backend exposes four endpoints:
 
 A **Next.js** frontend provides an interactive UI for each feature, including a citation graph SVG viewer and an evolution path DAG visualization.
 
-## UI Preview
+---
 
+## Preview
+
+### Research Lineage Exploration
 <p align="center">
-  <img src="docs/screenshots/ResearchLineageExploration.png" width="48%" />
-  <img src="docs/screenshots/BreakthroughDetection.png" width="48%" />
+  <img src="docs/screenshots/ResearchLineageExploration.png" width="90%" />
 </p>
 
+### Breakthrough Detection
 <p align="center">
-  <img src="docs/screenshots/TrendingMethodsDiscovery.png" width="48%" />
-  <img src="docs/screenshots/MethodEvolutionPath.png" width="48%" />
+  <img src="docs/screenshots/BreakthroughDetection.png" width="90%" />
+</p>
+
+### Trending Methods Discovery
+<p align="center">
+  <img src="docs/screenshots/TrendingMethodsDiscovery.png" width="90%" />
+</p>
+
+### Method Evolution Path
+<p align="center">
+  <img src="docs/screenshots/MethodEvolutionPath.png" width="90%" />
 </p>
 
 ---
