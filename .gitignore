@@ -10,3 +10,8 @@ build/
 .cache/
 frontend/node_modules/
 frontend/.next/
+
+# Claude Code local files
+.claude/agent-memory/
+.claude/history/
+.claude/settings.local.json
