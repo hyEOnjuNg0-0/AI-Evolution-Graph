@@ -282,7 +282,13 @@ python scripts/ingest.py --method-graph-only
 # Use higher-quality LLM for method extraction
 python scripts/ingest.py --method-graph --llm-model gpt-4o
 
-# Remove duplicate Method nodes after ingestion
+```
+
+#### Deduplication
+
+After building the Method graph, similar Method nodes (e.g. "BERT" and "bert-base") may remain as separate nodes. Run the deduplication script to merge them:
+
+```bash
 python scripts/dedup_methods.py --dry-run   # preview what would be merged
 python scripts/dedup_methods.py             # apply
 ```
