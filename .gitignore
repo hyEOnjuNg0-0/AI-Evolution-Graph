@@ -15,3 +15,10 @@ frontend/.next/
 .claude/agent-memory/
 .claude/history/
 .claude/settings.local.json
+
+# Local/private docs
+CLAUDE.md
+docs/*.md
+docs/**/*.md
+docs/*.json
+docs/**/*.json
